@@ -1,0 +1,30 @@
+# Node.js
+node_modules/
+frontend/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs (Vercel builds from source)
+frontend/dist/
+dist/
+
+# Java / Maven
+target/
+backend/target/
+*.class
+
+# Environment
+.env
+.env.local
+
+# IDE & OS
+.idea/
+*.iml
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
