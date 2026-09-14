@@ -5,8 +5,8 @@ import {
   Database, Zap, FlaskConical, User, Box,
   Droplets, Sparkles, ShieldCheck, Bluetooth, AlertTriangle
 } from 'lucide-react';
-import { runTest, getOperators } from '../services/api';
-import type { TestResult, Operator } from '../services/api';
+import { runTest } from '../services/api';
+import type { TestResult } from '../services/api';
 import { ResultCard } from '../components/ResultCard';
 import { SpectralChart } from '../components/SpectralChart';
 import { SpectralChart3D } from '../components/SpectralChart3D';
@@ -14,6 +14,7 @@ import { ChannelTable } from '../components/ChannelTable';
 import { PCAChart } from '../components/PCAChart';
 import { CartridgeZoneView } from '../components/CartridgeZoneView';
 import { MultimodalSensorGrid } from '../components/MultimodalSensorGrid';
+import { AnimalViewer3D } from '../components/AnimalViewer3D';
 import { useOperator } from '../context/OperatorContext';
 import { useBluetooth } from '../context/BluetoothContext';
 
@@ -36,11 +37,10 @@ type ValidFood = typeof FOOD_TYPES[number];
 
 export function NewTestPage() {
   const navigate = useNavigate();
-  const { currentOperator, operators: contextOps, setCurrentOperator } = useOperator();
+  const { currentOperator } = useOperator();
   const { isConnected, device, setIsModalOpen } = useBluetooth();
   const [foodType, setFoodType] = useState<ValidFood>('Milk');
   const [operatorId, setOperatorId] = useState(currentOperator?.id ?? 'default-operator');
-  const [operators, setOperators] = useState<Operator[]>(contextOps);
   const [running, setRunning] = useState(false);
   const [steps, setSteps] = useState<Step[]>(INITIAL_STEPS);
   const [result, setResult] = useState<TestResult | null>(null);
@@ -54,22 +54,6 @@ export function NewTestPage() {
       setOperatorId(currentOperator.id);
     }
   }, [currentOperator?.id]);
-
-  // Load operators if context doesn't have them
-  useEffect(() => {
-    if (contextOps.length > 0) {
-      setOperators(contextOps);
-    } else {
-      getOperators()
-        .then(ops => {
-          setOperators(ops);
-          if (ops.length > 0 && !currentOperator) {
-            setOperatorId(ops[0].id);
-          }
-        })
-        .catch(() => { /* fallback */ });
-    }
-  }, [contextOps, currentOperator]);
 
   const setStepStatus = (key: string, status: StepStatus) => {
     setSteps(prev => prev.map(s => s.key === key ? { ...s, status } : s));
@@ -123,11 +107,19 @@ export function NewTestPage() {
       </div>
 
       <div className="page-body">
+        {/* 3D Holographic Source Specimen Chamber */}
+        <AnimalViewer3D foodType={foodType} isScanning={running} />
+
         <div className="grid-2" style={{ alignItems: 'start' }}>
           {/* Left: Controls + Pipeline */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div className="card">
-              <div className="card-header"><div className="card-title">Test Configuration</div></div>
+              <div className="card-header">
+                <div className="card-title">Test Configuration</div>
+                <span style={{ fontSize: '11px', color: 'var(--accent)', fontFamily: 'monospace' }}>
+                  CHAMBER · READY
+                </span>
+              </div>
 
               {/* Hardware Connection Guard Banner */}
               {!isConnected ? (
@@ -135,18 +127,20 @@ export function NewTestPage() {
                   padding: '12px 14px',
                   background: 'rgba(239, 68, 68, 0.08)',
                   border: '1px solid rgba(239, 68, 68, 0.3)',
-                  borderRadius: 10,
+                  borderRadius: 12,
                   marginBottom: 16,
                   display: 'flex',
                   alignItems: 'center',
                   gap: 10,
+                  boxSizing: 'border-box',
+                  width: '100%',
                 }}>
                   <AlertTriangle size={20} color="#ef4444" style={{ flexShrink: 0 }} />
-                  <div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: '#fca5a5' }}>
                       Hardware Reader Offline
                     </div>
-                    <div style={{ fontSize: 11, color: '#94a3b8' }}>
+                    <div style={{ fontSize: 11, color: '#94a3b8', lineHeight: 1.35, marginTop: 2 }}>
                       Pair your NanoSense ESP32 reader via Bluetooth to acquire cartridge readings.
                     </div>
                   </div>
@@ -156,16 +150,18 @@ export function NewTestPage() {
                   padding: '10px 14px',
                   background: 'rgba(16, 185, 129, 0.08)',
                   border: '1px solid rgba(16, 185, 129, 0.3)',
-                  borderRadius: 10,
+                  borderRadius: 12,
                   marginBottom: 16,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
+                  boxSizing: 'border-box',
+                  width: '100%',
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Bluetooth size={16} color="#10b981" />
-                    <div>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: '#10b981' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                    <Bluetooth size={16} color="#10b981" style={{ flexShrink: 0 }} />
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#10b981', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {device?.name}
                       </div>
                       <div style={{ fontSize: 10, color: '#94a3b8' }}>
@@ -175,82 +171,149 @@ export function NewTestPage() {
                   </div>
                   <button
                     onClick={() => setIsModalOpen(true)}
-                    style={{ background: 'transparent', border: 'none', color: '#38bdf8', fontSize: 11, cursor: 'pointer', textDecoration: 'underline' }}
+                    style={{ background: 'transparent', border: 'none', color: '#38bdf8', fontSize: 11, cursor: 'pointer', textDecoration: 'underline', flexShrink: 0 }}
                   >
                     Manage
                   </button>
                 </div>
               )}
 
+              {/* 3D Specimen & Food Matrix Selection Cards */}
               <div className="form-group mb-4">
-                <label className="form-label">Food Type (Universal Cartridge)</label>
-                <select
-                  className="form-select"
-                  value={foodType}
-                  onChange={e => setFoodType(e.target.value as ValidFood)}
-                  disabled={running}
-                >
-                  {FOOD_TYPES.map(f => (
-                    <option key={f} value={f}>
-                      {f === 'Milk' ? '🥛 Milk' : f === 'Honey' ? '🍯 Honey' : '🧀 Paneer'}
-                    </option>
-                  ))}
-                </select>
+                <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>Food Matrix & 3D Specimen</span>
+                  <span style={{ fontSize: '10px', color: 'var(--accent)', fontWeight: 600 }}>Select specimen</span>
+                </label>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3, 1fr)',
+                  gap: '8px',
+                  marginTop: '4px',
+                }}>
+                  {FOOD_TYPES.map(f => {
+                    const isSel = foodType === f;
+                    const meta = {
+                      Milk:   { icon: '🥛', animal: '🐄 Cow', color: '#38bdf8', sub: '18-Ch NIR' },
+                      Honey:  { icon: '🍯', animal: '🐝 Bee', color: '#f59e0b', sub: 'Enzyme' },
+                      Paneer: { icon: '🧀', animal: '🐃 Buffalo', color: '#10b981', sub: 'Matrix' },
+                    }[f];
+                    return (
+                      <button
+                        key={f}
+                        type="button"
+                        onClick={() => setFoodType(f)}
+                        disabled={running}
+                        style={{
+                          padding: '10px 4px',
+                          borderRadius: '12px',
+                          background: isSel ? `${meta.color}18` : 'var(--bg-secondary)',
+                          border: `1.5px solid ${isSel ? meta.color : 'var(--border)'}`,
+                          cursor: running ? 'not-allowed' : 'pointer',
+                          textAlign: 'center',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: '3px',
+                          transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                          boxShadow: isSel ? `0 4px 14px ${meta.color}35` : 'none',
+                        }}
+                      >
+                        <span style={{ fontSize: '22px', lineHeight: 1 }}>{meta.icon}</span>
+                        <span style={{ fontSize: '12px', fontWeight: 700, color: isSel ? '#ffffff' : 'var(--text-primary)' }}>{f}</span>
+                        <span style={{ fontSize: '9px', color: isSel ? meta.color : 'var(--text-muted)', fontWeight: 600 }}>{meta.animal}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
+
+              {/* Bound Operator Card (Single-User Policy) */}
               <div className="form-group mb-4">
-                <label className="form-label"><User size={12} style={{ display: 'inline', marginRight: 4 }} />Operator</label>
-                {operators.length > 0 ? (
-                  <select
-                    className="form-select"
-                    value={operatorId}
-                    onChange={e => {
-                      setOperatorId(e.target.value);
-                      const found = operators.find(o => o.id === e.target.value);
-                      if (found) setCurrentOperator(found);
-                    }}
-                    disabled={running}
-                  >
-                    {operators.map(op => (
-                      <option key={op.id} value={op.id}>{op.name} ({op.id})</option>
-                    ))}
-                  </select>
-                ) : (
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <input
-                      className="form-input"
-                      value={operatorId}
-                      onChange={e => setOperatorId(e.target.value)}
-                      disabled={running}
-                      placeholder="operator-id"
-                    />
-                    <a href="/admin" style={{ fontSize: 11, color: 'var(--accent)', whiteSpace: 'nowrap' }}>Add operator</a>
+                <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span><User size={12} style={{ display: 'inline', marginRight: 4 }} />Bound Inspector</span>
+                  <span style={{ fontSize: '10px', color: 'var(--safe)', fontWeight: 600 }}>🔒 Device Locked</span>
+                </label>
+                <div style={{
+                  padding: '9px 12px',
+                  background: 'var(--bg-secondary)',
+                  borderRadius: 10,
+                  border: '1px solid var(--border)',
+                  fontSize: 13,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 8,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                    <div style={{
+                      width: 22,
+                      height: 22,
+                      borderRadius: '50%',
+                      background: 'var(--accent)',
+                      color: '#ffffff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 11,
+                      fontWeight: 700,
+                      flexShrink: 0,
+                    }}>
+                      {currentOperator ? currentOperator.name.charAt(0) : 'U'}
+                    </div>
+                    <span style={{ fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {currentOperator ? currentOperator.name : 'Authorized Inspector'}
+                    </span>
                   </div>
-                )}
+                  <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'monospace', flexShrink: 0 }}>
+                    {currentOperator?.id ?? operatorId}
+                  </span>
+                </div>
               </div>
+
               <div className="form-group mb-4">
-                <label className="form-label">Data Source</label>
-                <div style={{ padding: '9px 12px', background: 'var(--bg-secondary)', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, color: 'var(--text-secondary)' }}>
-                  {isConnected
-                    ? (device?.mode === 'HARDWARE_BLE' ? 'Bluetooth Low Energy (ESP32 Live Stream)' : 'Virtual Hardware Simulator (BLE Bridge)')
-                    : 'Device Disconnected — Connect via Bluetooth'}
+                <label className="form-label">Data Source Stream</label>
+                <div style={{
+                  padding: '9px 12px',
+                  background: 'var(--bg-secondary)',
+                  borderRadius: 10,
+                  border: '1px solid var(--border)',
+                  fontSize: 12,
+                  color: isConnected ? 'var(--safe)' : 'var(--text-secondary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: isConnected ? 'var(--safe)' : 'var(--text-muted)' }} />
+                  <span>
+                    {isConnected
+                      ? (device?.mode === 'HARDWARE_BLE' ? 'ESP32 BLE Live Stream (AS7265x)' : 'Virtual BLE Stream Simulator')
+                      : 'Device Disconnected — BLE Required'}
+                  </span>
                 </div>
               </div>
 
               {!isConnected ? (
                 <button
-                  className="btn btn-primary btn-large"
+                  className="btn btn-primary"
                   style={{
                     width: '100%',
-                    background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-                    border: 'none',
+                    padding: '12px 14px',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                    border: '1px solid #38bdf8',
+                    borderRadius: '12px',
+                    boxShadow: '0 4px 16px rgba(56, 189, 248, 0.4)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     gap: 8,
+                    cursor: 'pointer',
                   }}
                   onClick={() => setIsModalOpen(true)}
                 >
-                  <Bluetooth size={16} /> Connect Reader via Bluetooth
+                  <Bluetooth size={16} />
+                  <span>Connect Reader via BLE</span>
                 </button>
               ) : (
                 <button
