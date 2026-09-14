@@ -56,12 +56,26 @@ def get_history(
 
 
 @router.get("/summary")
-def history_summary(db: Session = Depends(get_db)):
+def history_summary(
+    operator_id: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+):
     """Summary counts for the dashboard."""
-    total = db.query(TestRecord).count()
     from sqlalchemy import func
-    by_label = db.query(TestRecord.final_label, func.count()).group_by(TestRecord.final_label).all()
-    by_food = db.query(TestRecord.food_type, func.count()).group_by(TestRecord.food_type).all()
+    q = db.query(TestRecord)
+    if operator_id:
+        q = q.filter(TestRecord.operator_id == operator_id)
+    total = q.count()
+
+    q_label = db.query(TestRecord.final_label, func.count())
+    q_food = db.query(TestRecord.food_type, func.count())
+    if operator_id:
+        q_label = q_label.filter(TestRecord.operator_id == operator_id)
+        q_food = q_food.filter(TestRecord.operator_id == operator_id)
+
+    by_label = q_label.group_by(TestRecord.final_label).all()
+    by_food = q_food.group_by(TestRecord.food_type).all()
+
     return {
         "totalTests": total,
         "byLabel": {label: count for label, count in by_label},

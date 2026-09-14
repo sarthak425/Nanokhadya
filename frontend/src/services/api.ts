@@ -214,27 +214,103 @@ const STORAGE_KEYS = {
   OPERATORS: 'nanotech_sim_operators',
 };
 
-function getStoredTests(): TestResult[] {
+export function getBoundDeviceUser(): { id: string; name: string; deviceId: string; role?: string; registeredAt?: string } | null {
   try {
+    const raw = localStorage.getItem('nanotech_device_bound_user');
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return null;
+}
+
+export function getStoredTests(): TestResult[] {
+  try {
+    const boundUser = getBoundDeviceUser();
     const raw = localStorage.getItem(STORAGE_KEYS.TESTS);
+    let tests: TestResult[] = [];
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) tests = parsed;
     }
+
+    if (boundUser?.id) {
+      let updated = false;
+      // Re-attribute any legacy or default tests to this bound user
+      tests = tests.map(t => {
+        if (!t.operatorId || t.operatorId === 'default-operator' || t.operatorId.startsWith('op-')) {
+          updated = true;
+          return {
+            ...t,
+            operatorId: boundUser.id,
+            deviceId: boundUser.deviceId || t.deviceId || 'DEV-LOCAL-001',
+          };
+        }
+        return t;
+      });
+
+      // If user has zero tests, generate initial verified historical records
+      const userTests = tests.filter(t => t.operatorId.toLowerCase() === boundUser.id.toLowerCase());
+      if (userTests.length === 0) {
+        const seedFoods: Array<'Milk' | 'Honey' | 'Paneer'> = ['Milk', 'Honey', 'Paneer', 'Milk'];
+        seedFoods.forEach((food, idx) => {
+          const gen = generateSyntheticTest(food, boundUser.id, boundUser.deviceId, false);
+          gen.timestamp = new Date(Date.now() - (idx + 1) * 3600000 * 4).toISOString();
+          tests.push(gen);
+        });
+        updated = true;
+      }
+
+      if (updated) {
+        localStorage.setItem(STORAGE_KEYS.TESTS, JSON.stringify(tests.slice(0, 100)));
+      }
+    }
+
+    return tests;
   } catch {}
   return [];
 }
 
-function saveStoredTest(test: TestResult) {
+export function saveStoredTest(test: TestResult) {
   try {
-    const tests = getStoredTests();
+    const boundUser = getBoundDeviceUser();
+    if (boundUser?.id) {
+      if (!test.operatorId || test.operatorId === 'default-operator') {
+        test.operatorId = boundUser.id;
+      }
+      if (!test.deviceId || test.deviceId.startsWith('DEV-AS7265X-SIM')) {
+        test.deviceId = boundUser.deviceId;
+      }
+    }
+    const raw = localStorage.getItem(STORAGE_KEYS.TESTS);
+    let tests: TestResult[] = [];
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) tests = parsed;
+    }
+    tests = tests.filter(t => t.testId !== test.testId);
     tests.unshift(test);
     localStorage.setItem(STORAGE_KEYS.TESTS, JSON.stringify(tests.slice(0, 100)));
+    try {
+      window.dispatchEvent(new CustomEvent('nanotech_test_saved', { detail: test }));
+    } catch {}
   } catch {}
 }
 
 function getStoredOperators(): Operator[] {
   try {
+    const boundUser = getBoundDeviceUser();
+    if (boundUser) {
+      const tests = getStoredTests().filter(t => t.operatorId.toLowerCase() === boundUser.id.toLowerCase());
+      return [
+        {
+          id: boundUser.id,
+          name: boundUser.name,
+          role: boundUser.role || 'Quality Analyst',
+          createdAt: boundUser.registeredAt || new Date().toISOString(),
+          testCount: tests.length,
+          lastTestAt: tests[0]?.timestamp || null,
+        }
+      ];
+    }
     const raw = localStorage.getItem(STORAGE_KEYS.OPERATORS);
     if (raw) {
       const parsed = JSON.parse(raw);
@@ -289,7 +365,18 @@ const ADULTERANT_CANDIDATES: Record<string, string[]> = {
   Paneer: ['Starch', 'Non-dairy protein', 'Vegetable fat/oil', 'Detergent', 'Urea'],
 };
 
-function generateSyntheticTest(foodType: string, operatorId: string): TestResult {
+export function generateSyntheticTest(
+  foodType: string,
+  operatorId?: string,
+  deviceId?: string,
+  autoSave = true
+): TestResult {
+  const boundUser = getBoundDeviceUser();
+  const effectiveOpId = (operatorId && operatorId !== 'default-operator')
+    ? operatorId
+    : (boundUser?.id || 'default-operator');
+  const effectiveDevId = deviceId || boundUser?.deviceId || 'DEV-AS7265X-SIM-01';
+
   const isAdulterated = Math.random() < 0.35;
   const isSuspected = !isAdulterated && Math.random() < 0.2;
   const finalLabel = isAdulterated ? 'ADULTERATED' : isSuspected ? 'SUSPECTED' : 'SAFE';
@@ -316,8 +403,8 @@ function generateSyntheticTest(foodType: string, operatorId: string): TestResult
 
   const testResult: TestResult = {
     testId,
-    deviceId: 'DEV-AS7265X-SIM-01',
-    operatorId,
+    deviceId: effectiveDevId,
+    operatorId: effectiveOpId,
     foodType,
     source: 'DEVELOPMENT',
     timestamp: new Date().toISOString(),
@@ -373,12 +460,17 @@ function generateSyntheticTest(foodType: string, operatorId: string): TestResult
     },
   };
 
-  saveStoredTest(testResult);
+  if (autoSave) {
+    saveStoredTest(testResult);
+  }
   return testResult;
 }
 
 const getSimulatedHistory = (params?: { food_type?: string; operator_id?: string; limit?: number; offset?: number }): HistoryResponse => {
-  let items = getStoredTests().map(t => ({
+  const boundUser = getBoundDeviceUser();
+  const tests = getStoredTests();
+
+  let items = tests.map(t => ({
     testId: t.testId,
     foodType: t.foodType,
     source: t.source,
@@ -391,26 +483,18 @@ const getSimulatedHistory = (params?: { food_type?: string; operator_id?: string
     probability: t.prediction?.probability ?? 0.95,
   }));
 
-  if (items.length === 0) {
-    ['Milk', 'Honey', 'Paneer', 'Milk', 'Honey'].forEach((food, i) => {
-      const gen = generateSyntheticTest(food, i % 2 === 0 ? 'op-01' : 'default-operator');
-      items.push({
-        testId: gen.testId,
-        foodType: gen.foodType,
-        source: gen.source,
-        operatorId: gen.operatorId,
-        deviceId: gen.deviceId,
-        finalLabel: gen.finalLabel,
-        validationStatus: gen.validation.status,
-        timestamp: new Date(Date.now() - (i + 1) * 3600000 * 4).toISOString(),
-        modelVersion: '1.0.0',
-        probability: gen.prediction?.probability ?? 0.92,
-      });
-    });
+  if (params?.food_type && params.food_type !== 'All') {
+    items = items.filter(i => i.foodType.toLowerCase() === params.food_type?.toLowerCase());
   }
 
-  if (params?.food_type) items = items.filter(i => i.foodType.toLowerCase() === params.food_type?.toLowerCase());
-  if (params?.operator_id) items = items.filter(i => i.operatorId === params.operator_id);
+  // Strictly prioritize bound operator data so the user always sees their own records
+  const targetOp = params?.operator_id || boundUser?.id;
+  if (targetOp) {
+    items = items.filter(i =>
+      i.operatorId.toLowerCase() === targetOp.toLowerCase() ||
+      (boundUser && i.operatorId.toLowerCase() === boundUser.id.toLowerCase())
+    );
+  }
 
   const limit = params?.limit ?? 50;
   const offset = params?.offset ?? 0;
@@ -502,20 +586,27 @@ export const connectDevice = async () => {
   }
 };
 
-export const runTest = async (foodType: string, operatorId = 'default-operator'): Promise<TestResult> => {
+export const runTest = async (foodType: string, operatorId?: string): Promise<TestResult> => {
+  const boundUser = getBoundDeviceUser();
+  const effectiveOpId = (operatorId && operatorId !== 'default-operator')
+    ? operatorId
+    : (boundUser?.id || 'default-operator');
+  const effectiveDevId = boundUser?.deviceId || 'DEV-LOCAL-001';
+
   if (isCloudWithoutBackend()) {
     await new Promise(r => setTimeout(r, 600));
-    return generateSyntheticTest(foodType, operatorId);
+    return generateSyntheticTest(foodType, effectiveOpId, effectiveDevId);
   }
   try {
-    const res = await api.post<TestResult>('/tests/run', { foodType, operatorId });
+    const res = await api.post<TestResult>('/tests/run', { foodType, operatorId: effectiveOpId });
     if (!res.data || typeof res.data !== 'object' || !res.data.testId) {
-      return generateSyntheticTest(foodType, operatorId);
+      return generateSyntheticTest(foodType, effectiveOpId, effectiveDevId);
     }
+    saveStoredTest(res.data);
     return res.data;
   } catch {
     await new Promise(r => setTimeout(r, 600));
-    return generateSyntheticTest(foodType, operatorId);
+    return generateSyntheticTest(foodType, effectiveOpId, effectiveDevId);
   }
 };
 
@@ -550,8 +641,10 @@ export const getHistory = async (params?: { food_type?: string; operator_id?: st
   }
 };
 
-export const getHistorySummary = async (): Promise<HistorySummary> => {
-  const hist = await getHistory();
+export const getHistorySummary = async (operator_id?: string): Promise<HistorySummary> => {
+  const boundUser = getBoundDeviceUser();
+  const targetOp = operator_id || boundUser?.id;
+  const hist = await getHistory(targetOp ? { operator_id: targetOp, limit: 500 } : undefined);
   const byLabel: Record<string, number> = {};
   const byFoodType: Record<string, number> = {};
   if (hist && Array.isArray(hist.items)) {

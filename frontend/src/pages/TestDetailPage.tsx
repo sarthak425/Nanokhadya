@@ -9,11 +9,14 @@ import { ChannelTable } from '../components/ChannelTable';
 import { PCAChart } from '../components/PCAChart';
 import { CartridgeZoneView } from '../components/CartridgeZoneView';
 import { MultimodalSensorGrid } from '../components/MultimodalSensorGrid';
+import { AnimalViewer3D } from '../components/AnimalViewer3D';
+import { useOperator } from '../context/OperatorContext';
 import { ArrowLeft, Download, Box } from 'lucide-react';
 
 export function TestDetailPage() {
   const { testId } = useParams<{ testId: string }>();
   const navigate = useNavigate();
+  const { currentOperator } = useOperator();
   const [result, setResult] = useState<TestResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,6 +34,10 @@ export function TestDetailPage() {
   if (loading) return <div className="loading-overlay"><span className="loading-spinner" /> Loading test record…</div>;
   if (error)   return <div style={{ padding: 32, color: 'var(--adulterated)' }}>Error: {error}</div>;
   if (!result) return null;
+
+  const operatorDisplay = currentOperator && (currentOperator.id === result.operatorId || currentOperator.id.toLowerCase() === result.operatorId.toLowerCase())
+    ? `${currentOperator.name} (${result.operatorId})`
+    : result.operatorId;
 
   return (
     <div>
@@ -53,6 +60,11 @@ export function TestDetailPage() {
       </div>
 
       <div className="page-body">
+        {/* 3D Holographic Bio-Specimen Chamber */}
+        <div style={{ marginBottom: 16 }}>
+          <AnimalViewer3D foodType={result.foodType as 'Milk' | 'Honey' | 'Paneer'} />
+        </div>
+
         <div className="grid-2 mb-4">
           <ResultCard result={result} />
 
@@ -62,7 +74,7 @@ export function TestDetailPage() {
               ['Test ID',    result.testId],
               ['Food Type',  result.foodType],
               ['Device',     result.deviceId],
-              ['Operator',   result.operatorId],
+              ['Operator',   operatorDisplay],
               ['Source',     result.source],
               ['Timestamp',  new Date(result.timestamp).toLocaleString()],
               ['Validation', result.validation.status],

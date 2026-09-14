@@ -179,23 +179,25 @@ export function NewTestPage() {
               )}
 
               {/* 3D Specimen & Food Matrix Selection Cards */}
-              <div className="form-group mb-4">
+              <div className="form-group mb-4" style={{ width: '100%', boxSizing: 'border-box' }}>
                 <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span>Food Matrix & 3D Specimen</span>
-                  <span style={{ fontSize: '10px', color: 'var(--accent)', fontWeight: 600 }}>Select specimen</span>
+                  <span style={{ fontSize: '10px', color: 'var(--accent)', fontWeight: 600 }}>Tap to switch 3D animal</span>
                 </label>
                 <div style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(3, 1fr)',
-                  gap: '8px',
+                  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                  gap: '6px',
                   marginTop: '4px',
+                  width: '100%',
+                  boxSizing: 'border-box',
                 }}>
                   {FOOD_TYPES.map(f => {
                     const isSel = foodType === f;
                     const meta = {
-                      Milk:   { icon: '🥛', animal: '🐄 Cow', color: '#38bdf8', sub: '18-Ch NIR' },
-                      Honey:  { icon: '🍯', animal: '🐝 Bee', color: '#f59e0b', sub: 'Enzyme' },
-                      Paneer: { icon: '🧀', animal: '🐃 Buffalo', color: '#10b981', sub: 'Matrix' },
+                      Milk:   { icon: '🥛', animal: '🐄 Cow', color: '#38bdf8' },
+                      Honey:  { icon: '🍯', animal: '🐝 Bee', color: '#f59e0b' },
+                      Paneer: { icon: '🧀', animal: '🐃 Buffalo', color: '#10b981' },
                     }[f];
                     return (
                       <button
@@ -204,23 +206,31 @@ export function NewTestPage() {
                         onClick={() => setFoodType(f)}
                         disabled={running}
                         style={{
-                          padding: '10px 4px',
+                          width: '100%',
+                          minWidth: 0,
+                          padding: '8px 2px',
+                          boxSizing: 'border-box',
                           borderRadius: '12px',
-                          background: isSel ? `${meta.color}18` : 'var(--bg-secondary)',
+                          background: isSel ? `${meta.color}20` : 'var(--bg-secondary)',
                           border: `1.5px solid ${isSel ? meta.color : 'var(--border)'}`,
                           cursor: running ? 'not-allowed' : 'pointer',
                           textAlign: 'center',
                           display: 'flex',
                           flexDirection: 'column',
                           alignItems: 'center',
-                          gap: '3px',
+                          justifyContent: 'center',
+                          gap: '2px',
                           transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                           boxShadow: isSel ? `0 4px 14px ${meta.color}35` : 'none',
                         }}
                       >
-                        <span style={{ fontSize: '22px', lineHeight: 1 }}>{meta.icon}</span>
-                        <span style={{ fontSize: '12px', fontWeight: 700, color: isSel ? '#ffffff' : 'var(--text-primary)' }}>{f}</span>
-                        <span style={{ fontSize: '9px', color: isSel ? meta.color : 'var(--text-muted)', fontWeight: 600 }}>{meta.animal}</span>
+                        <span style={{ fontSize: '20px', lineHeight: 1 }}>{meta.icon}</span>
+                        <span style={{ fontSize: '12px', fontWeight: 700, color: isSel ? '#ffffff' : 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {f}
+                        </span>
+                        <span style={{ fontSize: '9px', color: isSel ? meta.color : 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {meta.animal}
+                        </span>
                       </button>
                     );
                   })}

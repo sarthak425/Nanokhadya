@@ -25,6 +25,7 @@ interface OperatorContextValue {
   isAuthenticated: boolean;
   currentOperator: Operator | null;
   isLoading: boolean;
+  userTestCount: number;
   registerDeviceUser: (name: string, role: string, email: string, pin: string) => { success: boolean; error?: string };
   login: (pin: string) => { success: boolean; error?: string };
   logout: () => void;
@@ -40,6 +41,7 @@ const OperatorContext = createContext<OperatorContextValue>({
   isAuthenticated: false,
   currentOperator: null,
   isLoading: true,
+  userTestCount: 0,
   registerDeviceUser: () => ({ success: false }),
   login: () => ({ success: false }),
   logout: () => {},
@@ -64,11 +66,29 @@ function getOrCreateDeviceId(): string {
   }
 }
 
+function computeUserStats(operatorId: string) {
+  try {
+    const raw = localStorage.getItem('nanotech_sim_tests');
+    if (raw) {
+      const list = JSON.parse(raw);
+      if (Array.isArray(list)) {
+        const matching = list.filter((t: any) => t.operatorId?.toLowerCase() === operatorId.toLowerCase());
+        return {
+          count: matching.length,
+          lastTestAt: matching[0]?.timestamp || null,
+        };
+      }
+    }
+  } catch {}
+  return { count: 0, lastTestAt: null };
+}
+
 export function OperatorProvider({ children }: { children: ReactNode }) {
   const [deviceId] = useState<string>(getOrCreateDeviceId);
   const [deviceBoundUser, setDeviceBoundUser] = useState<DeviceUser | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [stats, setStats] = useState<{ count: number; lastTestAt: string | null }>({ count: 0, lastTestAt: null });
 
   // Initialize from localStorage
   useEffect(() => {
@@ -79,6 +99,7 @@ export function OperatorProvider({ children }: { children: ReactNode }) {
       if (storedUser) {
         const user: DeviceUser = JSON.parse(storedUser);
         setDeviceBoundUser(user);
+        setStats(computeUserStats(user.id));
         if (storedSession === 'true') {
           setIsAuthenticated(true);
         }
@@ -90,14 +111,25 @@ export function OperatorProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Listen for tests saved and update live stats
+  useEffect(() => {
+    if (!deviceBoundUser?.id) return;
+    const updateStats = () => {
+      setStats(computeUserStats(deviceBoundUser.id));
+    };
+    updateStats();
+    window.addEventListener('nanotech_test_saved', updateStats);
+    return () => window.removeEventListener('nanotech_test_saved', updateStats);
+  }, [deviceBoundUser?.id]);
+
   // Compute currentOperator compatible with existing application pages
   const currentOperator: Operator | null = deviceBoundUser && isAuthenticated ? {
     id: deviceBoundUser.id,
     name: deviceBoundUser.name,
     role: deviceBoundUser.role,
-    testCount: 0,
+    testCount: stats.count,
     createdAt: deviceBoundUser.registeredAt,
-    lastTestAt: null,
+    lastTestAt: stats.lastTestAt,
   } : null;
 
   // 1. Register Single Device User
@@ -194,6 +226,7 @@ export function OperatorProvider({ children }: { children: ReactNode }) {
         isAuthenticated,
         currentOperator,
         isLoading,
+        userTestCount: stats.count,
         registerDeviceUser,
         login,
         logout,

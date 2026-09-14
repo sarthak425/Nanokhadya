@@ -4,6 +4,7 @@ import { Activity, FlaskConical } from 'lucide-react';
 import { getHistory, getSystemStatus } from '../services/api';
 import type { HistorySummary, HistoryItem, SystemStatus } from '../services/api';
 import { useOperator } from '../context/OperatorContext';
+import { AnimalViewer3D } from '../components/AnimalViewer3D';
 
 // ── 3D Tilt card ──────────────────────────────────────────────────────
 function TiltCard({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
@@ -41,6 +42,7 @@ export function DashboardPage() {
   const [summary, setSummary] = useState<HistorySummary | null>(null);
   const [recent, setRecent]   = useState<HistoryItem[]>([]);
   const [status, setStatus]   = useState<SystemStatus | null>(null);
+  const [dashboardSpecimen, setDashboardSpecimen] = useState<'Milk' | 'Honey' | 'Paneer'>('Milk');
 
   useEffect(() => {
     getSystemStatus().then(setStatus).catch(() => {});
@@ -51,22 +53,28 @@ export function DashboardPage() {
     if (!currentOperator?.id) return;
     const opId = currentOperator.id;
 
-    getHistory({ limit: 5, operator_id: opId }).then(r => {
-      if (r && Array.isArray(r.items)) setRecent(r.items);
-    }).catch(() => {});
+    const loadData = () => {
+      getHistory({ limit: 5, operator_id: opId }).then(r => {
+        if (r && Array.isArray(r.items)) setRecent(r.items);
+      }).catch(() => {});
 
-    getHistory({ limit: 500, operator_id: opId })
-      .then(r => {
-        if (!r || !Array.isArray(r.items)) return;
-        const byLabel: Record<string, number> = {};
-        const byFood:  Record<string, number> = {};
-        for (const item of r.items) {
-          byLabel[item.finalLabel] = (byLabel[item.finalLabel] ?? 0) + 1;
-          byFood[item.foodType]    = (byFood[item.foodType]    ?? 0) + 1;
-        }
-        setSummary({ totalTests: r.total || r.items.length, byLabel, byFoodType: byFood });
-      })
-      .catch(() => {});
+      getHistory({ limit: 500, operator_id: opId })
+        .then(r => {
+          if (!r || !Array.isArray(r.items)) return;
+          const byLabel: Record<string, number> = {};
+          const byFood:  Record<string, number> = {};
+          for (const item of r.items) {
+            byLabel[item.finalLabel] = (byLabel[item.finalLabel] ?? 0) + 1;
+            byFood[item.foodType]    = (byFood[item.foodType]    ?? 0) + 1;
+          }
+          setSummary({ totalTests: r.total || r.items.length, byLabel, byFoodType: byFood });
+        })
+        .catch(() => {});
+    };
+
+    loadData();
+    window.addEventListener('nanotech_test_saved', loadData);
+    return () => window.removeEventListener('nanotech_test_saved', loadData);
   }, [currentOperator?.id]);
 
   const LABEL_COLOR: Record<string, string> = {
@@ -80,12 +88,27 @@ export function DashboardPage() {
       <div className="page-header">
         <div>
           <h1 className="page-title">Dashboard</h1>
-          <div className="page-subtitle">
-            {status?.sensor?.type ?? 'AS7265x'} · {status?.sensor?.channels ?? 18} channels · {status?.sensor?.wavelengthRange ?? '410–940 nm'}
+          <div className="page-subtitle" style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
+            <span>{status?.sensor?.type ?? 'AS7265x'} · 18 channels</span>
             {currentOperator && (
-              <span style={{ marginLeft: 12, color: 'var(--accent)', fontWeight: 600 }}>
-                — Operator: {currentOperator.name} (Private Session)
-              </span>
+              <>
+                <span>·</span>
+                <span style={{ color: 'var(--safe)', fontWeight: 600 }}>
+                  👤 {currentOperator.name}
+                </span>
+                <span style={{
+                  fontSize: 10,
+                  padding: '2px 8px',
+                  borderRadius: 8,
+                  background: 'rgba(16, 185, 129, 0.1)',
+                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                  color: 'var(--safe)',
+                  fontWeight: 600,
+                  fontFamily: 'monospace',
+                }}>
+                  🔒 USER DATA RESTORED ({summary?.totalTests ?? 0} TESTS)
+                </span>
+              </>
             )}
           </div>
         </div>
@@ -104,6 +127,38 @@ export function DashboardPage() {
             Results use synthetic spectral data. Switch to BLE when hardware is available.
           </div>
         )}
+
+        {/* 3D Holographic Bio-Specimen Matrix Showcase */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-primary)' }}>
+              3D Holographic Bio-Specimens
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {(['Milk', 'Honey', 'Paneer'] as const).map(f => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => setDashboardSpecimen(f)}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: 8,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    background: dashboardSpecimen === f ? 'var(--accent)' : 'var(--bg-secondary)',
+                    color: dashboardSpecimen === f ? '#ffffff' : 'var(--text-secondary)',
+                    border: '1px solid var(--border)',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  {f === 'Milk' ? '🐄 Cow' : f === 'Honey' ? '🐝 Bee' : '🐃 Buffalo'}
+                </button>
+              ))}
+            </div>
+          </div>
+          <AnimalViewer3D foodType={dashboardSpecimen} />
+        </div>
 
         {/* System Status — 3D tilt cards */}
         <div className="card mb-4">

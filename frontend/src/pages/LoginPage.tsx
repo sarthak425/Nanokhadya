@@ -9,6 +9,7 @@ export function LoginPage() {
     registerDeviceUser,
     login,
     unbindDevice,
+    userTestCount,
   } = useOperator();
 
   // Registration state
@@ -195,18 +196,18 @@ export function LoginPage() {
           <div>
             {/* Bound User Card */}
             <div style={{
-              background: 'rgba(30, 41, 59, 0.7)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
+              background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%)',
+              border: '1px solid rgba(56, 189, 248, 0.3)',
               borderRadius: '16px',
               padding: '16px',
-              marginBottom: '20px',
+              marginBottom: '16px',
               display: 'flex',
               alignItems: 'center',
               gap: '14px',
             }}>
               <div style={{
-                width: '46px',
-                height: '46px',
+                width: '48px',
+                height: '48px',
                 borderRadius: '50%',
                 background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
                 display: 'flex',
@@ -216,7 +217,7 @@ export function LoginPage() {
                 fontSize: '18px',
                 color: '#ffffff',
                 border: '2px solid rgba(56, 189, 248, 0.5)',
-                boxShadow: '0 0 12px rgba(56, 189, 248, 0.25)',
+                boxShadow: '0 0 14px rgba(56, 189, 248, 0.3)',
               }}>
                 {deviceBoundUser.name.charAt(0).toUpperCase()}
               </div>
@@ -225,27 +226,37 @@ export function LoginPage() {
                   {deviceBoundUser.name}
                 </div>
                 <div style={{ fontSize: '12px', color: '#38bdf8', fontWeight: 500, marginTop: '2px' }}>
-                  {deviceBoundUser.role}
+                  {deviceBoundUser.role} · <span className="mono" style={{ color: '#94a3b8' }}>{deviceBoundUser.id}</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px', fontSize: '10px', color: '#10b981' }}>
-                  <CheckCircle size={10} />
-                  <span>Bound to this terminal exclusively</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px', fontSize: '11px', color: '#10b981', flexWrap: 'wrap' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <CheckCircle size={11} /> Bound User
+                  </span>
+                  <span style={{ color: '#64748b' }}>•</span>
+                  <span style={{ color: '#cbd5e1', fontWeight: 600 }}>
+                    {userTestCount} inspection record{userTestCount !== 1 ? 's' : ''} saved
+                  </span>
                 </div>
               </div>
             </div>
 
-            {/* Single-User Policy Notice */}
+            {/* Same User Data Assurance Notice */}
             <div style={{
               fontSize: '11px',
               color: '#94a3b8',
-              lineHeight: 1.4,
+              lineHeight: 1.45,
               marginBottom: '18px',
-              padding: '8px 12px',
-              background: 'rgba(56, 189, 248, 0.04)',
-              borderRadius: '8px',
+              padding: '10px 12px',
+              background: 'rgba(56, 189, 248, 0.05)',
+              borderRadius: '10px',
               borderLeft: '3px solid #38bdf8',
             }}>
-              <strong>Single-Device Security Policy:</strong> This terminal stores sensitive food inspection data. Only <strong>{deviceBoundUser.name}</strong> can unlock and view records on this device.
+              <div style={{ color: '#e2e8f0', fontWeight: 600, marginBottom: 2 }}>
+                Welcome back, {deviceBoundUser.name}!
+              </div>
+              <div>
+                All <strong>{userTestCount}</strong> previous food test records and dashboard metrics belong to your profile and will be restored immediately upon entering your PIN.
+              </div>
             </div>
 
             {/* Unlock Form */}
