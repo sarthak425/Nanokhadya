@@ -5,7 +5,7 @@ import type { HistoryItem } from '../services/api';
 import { FlaskConical, Globe, User } from 'lucide-react';
 import { useOperator } from '../context/OperatorContext';
 
-const FOOD_TYPES = ['All', 'Milk', 'Cooking Oil', 'Spice', 'Honey', 'Other'];
+const FOOD_TYPES = ['All', 'Milk', 'Honey', 'Paneer'];
 
 export function HistoryPage() {
   const navigate = useNavigate();

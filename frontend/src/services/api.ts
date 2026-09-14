@@ -105,6 +105,7 @@ export interface TestResult {
   finalLabel: string;
   possibleIssue: string | null;
   model: ModelInfo | null;
+  detectedAdulterants?: string[];
 }
 
 export interface HistoryItem {
@@ -281,12 +282,18 @@ const getSimulatedDeviceStatus = () => ({
   },
 });
 
+const ADULTERANT_CANDIDATES: Record<string, string[]> = {
+  Milk: ['Starch', 'Urea', 'Detergent/Surfactant', 'Formalin', 'Melamine', 'Protein (non-dairy)'],
+  Honey: ['Added sugar (syrup)', 'Rice syrup marker', 'C4 sugar (adulterant)', 'Invert sugar', 'HMF (overheating)'],
+  Paneer: ['Starch', 'Non-dairy protein', 'Vegetable fat/oil', 'Detergent', 'Urea'],
+};
+
 function generateSyntheticTest(foodType: string, operatorId: string): TestResult {
   const isAdulterated = Math.random() < 0.35;
   const isSuspected = !isAdulterated && Math.random() < 0.2;
   const finalLabel = isAdulterated ? 'ADULTERATED' : isSuspected ? 'SUSPECTED' : 'SAFE';
 
-  const baseIntensity = foodType === 'Milk' ? 28000 : foodType === 'Cooking Oil' ? 36000 : foodType === 'Honey' ? 32000 : 22000;
+  const baseIntensity = foodType === 'Milk' ? 28000 : foodType === 'Honey' ? 32000 : 30000;
   
   const channels: SpectralChannel[] = AS7265X_WAVELENGTHS.map((wl, i) => {
     let raw = baseIntensity + Math.sin(i * 0.45) * 8000 + (Math.random() - 0.5) * 1200;
@@ -302,6 +309,10 @@ function generateSyntheticTest(foodType: string, operatorId: string): TestResult
   const testId = `TST-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 900 + 100)}`;
   const prob = isAdulterated ? (0.84 + Math.random() * 0.14) : isSuspected ? (0.58 + Math.random() * 0.12) : (0.91 + Math.random() * 0.08);
 
+  const candidates = ADULTERANT_CANDIDATES[foodType] || ['Starch'];
+  const detectedAdulterant = candidates[Math.floor(Math.random() * candidates.length)];
+  const detectedAdulterants = isAdulterated ? [detectedAdulterant] : isSuspected ? [candidates[0]] : [];
+
   const testResult: TestResult = {
     testId,
     deviceId: 'DEV-AS7265X-SIM-01',
@@ -312,7 +323,7 @@ function generateSyntheticTest(foodType: string, operatorId: string): TestResult
     isDevelopmentResult: true,
     validation: {
       status: 'VALID',
-      warnings: isAdulterated ? ['Anomalous NIR absorption delta detected in 610-680nm range'] : [],
+      warnings: isAdulterated ? [`Anomalous chromogenic shift: ${detectedAdulterant} sensing zone active`] : [],
     },
     preprocessing: {
       steps: ['Savitzky-Golay Smoothing (w=3)', 'Asymmetric Least Squares Baseline', 'Standard Normal Variate (SNV) Normalization'],
@@ -346,17 +357,18 @@ function generateSyntheticTest(foodType: string, operatorId: string): TestResult
         ADULTERATED: isAdulterated ? 0.88 : isSuspected ? 0.25 : 0.02,
         SUSPECTED: isAdulterated ? 0.07 : isSuspected ? 0.40 : 0.04,
       },
-      warnings: isAdulterated ? ['Multispectral deviation indicates probable foreign adulterant'] : [],
+      warnings: isAdulterated ? [`Multispectral deviation indicates presence of ${detectedAdulterant}`] : [],
     },
     finalLabel,
-    possibleIssue: isAdulterated ? `Foreign compound detected in ${foodType} sample` : null,
+    possibleIssue: isAdulterated ? `${detectedAdulterant} detected in ${foodType} sample` : null,
+    detectedAdulterants,
     model: {
-      id: 'MDL-PCA-SVM-V1.0',
+      id: `MDL-PCA-SVM-${foodType.toUpperCase()}-V1.0`,
       type: 'PCA-SVM',
       version: '1.0.0',
       isDevelopmentModel: true,
       foodType,
-      datasetLabel: 'Standard Multi-spectral Matrix v1',
+      datasetLabel: `${foodType} 16-Zone Multispectral Matrix v1`,
     },
   };
 
@@ -379,7 +391,7 @@ const getSimulatedHistory = (params?: { food_type?: string; operator_id?: string
   }));
 
   if (items.length === 0) {
-    ['Milk', 'Cooking Oil', 'Spice', 'Honey', 'Milk'].forEach((food, i) => {
+    ['Milk', 'Honey', 'Paneer', 'Milk', 'Honey'].forEach((food, i) => {
       const gen = generateSyntheticTest(food, i % 2 === 0 ? 'op-01' : 'default-operator');
       items.push({
         testId: gen.testId,
@@ -410,32 +422,44 @@ const getSimulatedHistory = (params?: { food_type?: string; operator_id?: string
 };
 
 const getSimulatedDatasets = (): Dataset[] => [
-  { id: 'ds-milk-01', name: 'Milk Baseline & Urea/Starch Adulteration', foodType: 'Milk', sampleCount: 140, classDistribution: { SAFE: 80, ADULTERATED: 45, SUSPECTED: 15 }, isDevelopmentData: true, importedAt: new Date().toISOString() },
-  { id: 'ds-oil-01', name: 'Mustard & Edible Oil Purity Matrix', foodType: 'Cooking Oil', sampleCount: 95, classDistribution: { SAFE: 60, ADULTERATED: 25, SUSPECTED: 10 }, isDevelopmentData: true, importedAt: new Date().toISOString() },
-  { id: 'ds-spice-01', name: 'Turmeric Metanil Yellow Spectral Signatures', foodType: 'Spice', sampleCount: 110, classDistribution: { SAFE: 70, ADULTERATED: 30, SUSPECTED: 10 }, isDevelopmentData: true, importedAt: new Date().toISOString() },
+  { id: 'ds-milk-01', name: 'Milk 16-Zone Cartridge Calibration Matrix', foodType: 'Milk', sampleCount: 160, classDistribution: { SAFE: 95, ADULTERATED: 50, SUSPECTED: 15 }, isDevelopmentData: true, importedAt: new Date().toISOString() },
+  { id: 'ds-honey-01', name: 'Honey Purity & C4/Rice Syrup Spectral Matrix', foodType: 'Honey', sampleCount: 135, classDistribution: { SAFE: 85, ADULTERATED: 35, SUSPECTED: 15 }, isDevelopmentData: true, importedAt: new Date().toISOString() },
+  { id: 'ds-paneer-01', name: 'Paneer Adulteration & Fat/Protein Matrix', foodType: 'Paneer', sampleCount: 120, classDistribution: { SAFE: 75, ADULTERATED: 35, SUSPECTED: 10 }, isDevelopmentData: true, importedAt: new Date().toISOString() },
 ];
 
 const getSimulatedModels = (): MLModel[] => [
   {
-    model_id: 'MDL-PCA-SVM-V1.0',
+    model_id: 'MDL-PCA-SVM-MILK-V1.0',
     version: '1.0.0',
     food_type: 'Milk',
     classes: ['SAFE', 'SUSPECTED', 'ADULTERATED'],
-    sample_count: 140,
+    sample_count: 160,
     is_development_model: true,
-    metrics: { cv_mean_accuracy: 0.964, cv_std_accuracy: 0.021, precision: 0.958, recall: 0.962 },
+    metrics: { cv_mean_accuracy: 0.968, cv_std_accuracy: 0.019, precision: 0.962, recall: 0.965 },
     trained_at: new Date().toISOString(),
     pca_components: 2,
     svm_kernel: 'rbf',
   },
   {
-    model_id: 'MDL-PCA-SVM-OIL-V1.0',
+    model_id: 'MDL-PCA-SVM-HONEY-V1.0',
     version: '1.0.0',
-    food_type: 'Cooking Oil',
+    food_type: 'Honey',
     classes: ['SAFE', 'SUSPECTED', 'ADULTERATED'],
-    sample_count: 95,
+    sample_count: 135,
     is_development_model: true,
-    metrics: { cv_mean_accuracy: 0.947, cv_std_accuracy: 0.028, precision: 0.941, recall: 0.950 },
+    metrics: { cv_mean_accuracy: 0.956, cv_std_accuracy: 0.024, precision: 0.951, recall: 0.958 },
+    trained_at: new Date().toISOString(),
+    pca_components: 2,
+    svm_kernel: 'rbf',
+  },
+  {
+    model_id: 'MDL-PCA-SVM-PANEER-V1.0',
+    version: '1.0.0',
+    food_type: 'Paneer',
+    classes: ['SAFE', 'SUSPECTED', 'ADULTERATED'],
+    sample_count: 120,
+    is_development_model: true,
+    metrics: { cv_mean_accuracy: 0.952, cv_std_accuracy: 0.022, precision: 0.948, recall: 0.955 },
     trained_at: new Date().toISOString(),
     pca_components: 2,
     svm_kernel: 'rbf',
@@ -639,11 +663,11 @@ export const getAdminOverview = async (): Promise<AdminOverview> => {
     totalOperators: 3,
     totalDevices: 1,
     totalDatasets: 3,
-    totalModels: 2,
+    totalModels: 3,
     devTests: history.total,
     bleTests: 0,
     byLabel: { SAFE: Math.round(history.total * 0.6), ADULTERATED: Math.round(history.total * 0.28), SUSPECTED: Math.round(history.total * 0.12) },
-    byFoodType: { Milk: Math.round(history.total * 0.5), 'Cooking Oil': Math.round(history.total * 0.3), Spice: Math.round(history.total * 0.2) },
+    byFoodType: { Milk: Math.round(history.total * 0.45), Honey: Math.round(history.total * 0.35), Paneer: Math.round(history.total * 0.20) },
     dataSource: 'DEVELOPMENT',
     appVersion: '0.1.0',
     latestTestAt: new Date().toISOString(),

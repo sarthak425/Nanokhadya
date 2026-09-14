@@ -1,13 +1,17 @@
-"""Food type classifications supported by the system."""
+"""
+Food type classifications supported by the system.
+Strictly configured for the Universal Food Adulteration Detection Cartridge:
+1. Milk
+2. Honey
+3. Paneer
+"""
 from enum import Enum
 
 
 class FoodType(str, Enum):
     MILK = "Milk"
-    COOKING_OIL = "Cooking Oil"
-    SPICE = "Spice"
     HONEY = "Honey"
-    OTHER = "Other"
+    PANEER = "Paneer"
 
     @classmethod
     def values(cls) -> list[str]:

@@ -15,7 +15,7 @@ import {
 const TABS = ['Overview', 'Operators', 'Devices', 'All Tests', 'System'] as const;
 type Tab = typeof TABS[number];
 
-const FOOD_TYPES = ['All', 'Milk', 'Cooking Oil', 'Spice', 'Honey', 'Other'];
+const FOOD_TYPES = ['All', 'Milk', 'Honey', 'Paneer'];
 const LABELS     = ['All', 'SAFE', 'SUSPECTED', 'ADULTERATED', 'UNKNOWN'];
 const SOURCES    = ['All', 'DEVELOPMENT', 'BLE'];
 

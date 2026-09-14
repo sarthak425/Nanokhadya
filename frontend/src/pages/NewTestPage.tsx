@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Wifi, CheckCircle, XCircle, Cpu, Activity,
-  Database, Zap, BarChart3, FlaskConical, User, Box
+  CheckCircle, XCircle, Cpu, Activity,
+  Database, Zap, FlaskConical, User, Box,
+  Droplets, Sparkles, ShieldCheck
 } from 'lucide-react';
 import { runTest, getOperators } from '../services/api';
 import type { TestResult, Operator } from '../services/api';
@@ -11,6 +12,7 @@ import { SpectralChart } from '../components/SpectralChart';
 import { SpectralChart3D } from '../components/SpectralChart3D';
 import { ChannelTable } from '../components/ChannelTable';
 import { PCAChart } from '../components/PCAChart';
+import { CartridgeZoneView } from '../components/CartridgeZoneView';
 import { useOperator } from '../context/OperatorContext';
 
 type StepStatus = 'pending' | 'active' | 'done' | 'error';
@@ -18,28 +20,29 @@ type StepStatus = 'pending' | 'active' | 'done' | 'error';
 interface Step { label: string; key: string; icon: React.ReactNode; status: StepStatus; }
 
 const INITIAL_STEPS: Step[] = [
-  { key: 'acquire',     label: 'Acquiring sensor data',    icon: <Wifi size={16} />,       status: 'pending' },
-  { key: 'validate',    label: 'Validating 18 channels',   icon: <CheckCircle size={16} />, status: 'pending' },
-  { key: 'preprocess',  label: 'Preprocessing (SNV norm)', icon: <Activity size={16} />,   status: 'pending' },
-  { key: 'fingerprint', label: 'Spectral fingerprint',     icon: <Zap size={16} />,        status: 'pending' },
-  { key: 'pca',         label: 'PCA dimensionality reduction', icon: <BarChart3 size={16} />, status: 'pending' },
-  { key: 'svm',         label: 'SVM classification',       icon: <Cpu size={16} />,        status: 'pending' },
-  { key: 'storage',     label: 'Saving test record',       icon: <Database size={16} />,   status: 'pending' },
+  { key: 'nanozymes',    label: '1. Nanozymes (Zone functionalization)',       icon: <Sparkles size={16} />,   status: 'pending' },
+  { key: 'mixing',       label: '2. Chemical Mixing (Microfluidic flow)',      icon: <Droplets size={16} />,   status: 'pending' },
+  { key: 'reaction',     label: '3. Reaction (Colorimetry + AS7265x NIR)',    icon: <Activity size={16} />,   status: 'pending' },
+  { key: 'control_val',  label: 'Control Validation (Zone 16 verified)',       icon: <ShieldCheck size={16} />, status: 'pending' },
+  { key: 'preprocess',   label: 'Preprocessing (SNV baseline norm)',           icon: <Zap size={16} />,        status: 'pending' },
+  { key: 'ai_eval',      label: 'Multimodal AI (PCA + SVM classification)',    icon: <Cpu size={16} />,        status: 'pending' },
+  { key: 'storage',      label: 'Test Record & Report Finalized',              icon: <Database size={16} />,   status: 'pending' },
 ];
 
-const FOOD_TYPES = ['Milk', 'Cooking Oil', 'Spice', 'Honey', 'Other'];
+const FOOD_TYPES = ['Milk', 'Honey', 'Paneer'] as const;
+type ValidFood = typeof FOOD_TYPES[number];
 
 export function NewTestPage() {
   const navigate = useNavigate();
   const { currentOperator, operators: contextOps, setCurrentOperator } = useOperator();
-  const [foodType, setFoodType] = useState('Milk');
+  const [foodType, setFoodType] = useState<ValidFood>('Milk');
   const [operatorId, setOperatorId] = useState(currentOperator?.id ?? 'default-operator');
   const [operators, setOperators] = useState<Operator[]>(contextOps);
   const [running, setRunning] = useState(false);
   const [steps, setSteps] = useState<Step[]>(INITIAL_STEPS);
   const [result, setResult] = useState<TestResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'result' | 'spectrum' | 'channels' | 'pca'>('result');
+  const [activeTab, setActiveTab] = useState<'cartridge' | 'result' | 'spectrum' | 'channels' | 'pca'>('cartridge');
   const [spectralMode, setSpectralMode] = useState<'3d' | '2d'>('3d');
 
   // Keep operatorId in sync with current context operator
@@ -78,7 +81,7 @@ export function NewTestPage() {
     setSteps(INITIAL_STEPS);
 
     try {
-      // Animate pipeline steps with staggered timing
+      // Animate physical detection steps
       for (const step of INITIAL_STEPS.slice(0, 6)) {
         setStepStatus(step.key, 'active');
         await sleep(350);
@@ -92,7 +95,7 @@ export function NewTestPage() {
       setStepStatus('storage', 'done');
 
       setResult(testResult);
-      setActiveTab('result');
+      setActiveTab('cartridge');
     } catch (err: any) {
       const msg = err?.response?.data?.detail ?? err.message ?? 'Test failed';
       setError(msg);
@@ -118,14 +121,18 @@ export function NewTestPage() {
             <div className="card">
               <div className="card-header"><div className="card-title">Test Configuration</div></div>
               <div className="form-group mb-4">
-                <label className="form-label">Food Type</label>
+                <label className="form-label">Food Type (Universal Cartridge)</label>
                 <select
                   className="form-select"
                   value={foodType}
-                  onChange={e => setFoodType(e.target.value)}
+                  onChange={e => setFoodType(e.target.value as ValidFood)}
                   disabled={running}
                 >
-                  {FOOD_TYPES.map(f => <option key={f}>{f}</option>)}
+                  {FOOD_TYPES.map(f => (
+                    <option key={f} value={f}>
+                      {f === 'Milk' ? '🥛 Milk' : f === 'Honey' ? '🍯 Honey' : '🧀 Paneer'}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="form-group mb-4">
@@ -161,7 +168,7 @@ export function NewTestPage() {
               <div className="form-group mb-4">
                 <label className="form-label">Data Source</label>
                 <div style={{ padding: '9px 12px', background: 'var(--bg-secondary)', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, color: 'var(--text-secondary)' }}>
-                  Development Mode (synthetic spectral fingerprint)
+                  Development Mode (AS7265x Triad Simulator)
                 </div>
               </div>
               <button
@@ -200,14 +207,25 @@ export function NewTestPage() {
             </div>
           </div>
 
-          {/* Right: Results */}
+          {/* Right: Results & Cartridge View */}
           <div>
-            {!result && !running && (
-              <div className="card" style={{ textAlign: 'center', padding: '48px 24px' }}>
-                <FlaskConical size={40} color="var(--text-muted)" />
-                <div style={{ marginTop: 12, color: 'var(--text-muted)', fontSize: 13 }}>
-                  Configure food type and click Start Test to run the full pipeline.
-                </div>
+            {!result && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <CartridgeZoneView
+                  selectedFood={foodType}
+                  onFoodChange={(f) => setFoodType(f)}
+                />
+                {running && (
+                  <div className="card" style={{ textAlign: 'center', padding: '24px' }}>
+                    <div className="loading-spinner" style={{ margin: '0 auto 12px auto' }} />
+                    <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                      Executing 3-Step Physical Detection Sequence…
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
+                      1. Nanozymes Activation → 2. Chemical Capillary Mixing → 3. Reaction & 18-Channel Spectral Scan
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -215,17 +233,26 @@ export function NewTestPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 {/* Tabs */}
                 <div style={{ display: 'flex', gap: 4, background: 'var(--bg-secondary)', padding: 4, borderRadius: 8, border: '1px solid var(--border)' }}>
-                  {(['result', 'spectrum', 'channels', 'pca'] as const).map(tab => (
+                  {(['cartridge', 'result', 'spectrum', 'channels', 'pca'] as const).map(tab => (
                     <button
                       key={tab}
                       onClick={() => setActiveTab(tab)}
                       className={activeTab === tab ? 'btn btn-primary' : 'btn btn-outline'}
                       style={{ flex: 1, padding: '6px 8px', fontSize: 12, textTransform: 'capitalize' }}
                     >
-                      {tab === 'pca' ? 'PCA' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                      {tab === 'cartridge' ? 'Cartridge Zones' : tab === 'pca' ? 'PCA' : tab.charAt(0).toUpperCase() + tab.slice(1)}
                     </button>
                   ))}
                 </div>
+
+                {activeTab === 'cartridge' && (
+                  <CartridgeZoneView
+                    selectedFood={result.foodType as ValidFood}
+                    onFoodChange={(f) => setFoodType(f)}
+                    isAdulterated={result.finalLabel === 'ADULTERATED'}
+                    detectedAdulterants={result.detectedAdulterants || (result.possibleIssue ? [result.possibleIssue] : [])}
+                  />
+                )}
 
                 {activeTab === 'result' && <ResultCard result={result} />}
 
