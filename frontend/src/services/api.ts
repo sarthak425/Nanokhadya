@@ -164,6 +164,7 @@ export interface Operator {
   createdAt: string;
   testCount: number;
   lastTestAt: string | null;
+  role?: string;
 }
 
 export interface DeviceRecord {

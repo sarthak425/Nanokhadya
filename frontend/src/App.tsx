@@ -11,11 +11,12 @@ import { HistoryPage } from './pages/HistoryPage';
 import { ModelPage } from './pages/ModelPage';
 import { AdminPage } from './pages/AdminPage';
 import { getSystemStatus } from './services/api';
-import { OperatorProvider } from './context/OperatorContext';
+import { OperatorProvider, useOperator } from './context/OperatorContext';
 import { BluetoothProvider } from './context/BluetoothContext';
 import { BluetoothConnectModal } from './components/BluetoothConnectModal';
 import { PWAInstallPrompt } from './components/PWAInstallPrompt';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { LoginPage } from './pages/LoginPage';
 
 function SettingsPage() {
   return (
@@ -43,7 +44,8 @@ function SettingsPage() {
 }
 
 
-export default function App() {
+function AppLayout() {
+  const { isAuthenticated, isLoading } = useOperator();
   const [isDev, setIsDev] = useState(true);
   const [connected, setConnected] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
@@ -72,53 +74,80 @@ export default function App() {
       .catch(() => {});
   }, []);
 
+  if (isLoading) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: '#020617',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: '#38bdf8',
+        fontFamily: 'monospace',
+        fontSize: 14,
+      }}>
+        Initializing NanoTech Terminal...
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <LoginPage />;
+  }
+
+  return (
+    <BrowserRouter>
+      <BluetoothConnectModal />
+      <PWAInstallPrompt />
+      <div className="app-layout">
+        {/* Mobile Top Bar */}
+        <MobileHeader
+          isDev={isDev}
+          connected={connected}
+          onToggleDrawer={() => setMobileDrawerOpen(o => !o)}
+          drawerOpen={mobileDrawerOpen}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+        />
+
+        {/* Sidebar Navigation */}
+        <Sidebar
+          isDev={isDev}
+          connected={connected}
+          mobileOpen={mobileDrawerOpen}
+          onClose={() => setMobileDrawerOpen(false)}
+        />
+
+        {/* Main Application Content */}
+        <main className="main-content">
+          <Routes>
+            <Route path="/" element={<DashboardPage />} />
+            <Route path="/device" element={<DevicePage />} />
+            <Route path="/test" element={<NewTestPage />} />
+            <Route path="/test/:testId" element={<TestDetailPage />} />
+            <Route path="/history" element={<HistoryPage />} />
+            <Route path="/datasets" element={<DatasetPage />} />
+            <Route path="/models" element={<ModelPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/admin" element={<AdminPage />} />
+          </Routes>
+        </main>
+
+        {/* Mobile Bottom Navigation Bar */}
+        <MobileBottomBar
+          onToggleMore={() => setMobileDrawerOpen(o => !o)}
+        />
+      </div>
+    </BrowserRouter>
+  );
+}
+
+export default function App() {
   return (
     <ErrorBoundary>
       <OperatorProvider>
         <BluetoothProvider>
-          <BrowserRouter>
-            <BluetoothConnectModal />
-            <PWAInstallPrompt />
-            <div className="app-layout">
-            {/* Mobile Top Bar */}
-            <MobileHeader
-              isDev={isDev}
-              connected={connected}
-              onToggleDrawer={() => setMobileDrawerOpen(o => !o)}
-              drawerOpen={mobileDrawerOpen}
-              theme={theme}
-              onToggleTheme={toggleTheme}
-            />
-
-            {/* Sidebar Navigation */}
-            <Sidebar
-              isDev={isDev}
-              connected={connected}
-              mobileOpen={mobileDrawerOpen}
-              onClose={() => setMobileDrawerOpen(false)}
-            />
-
-            {/* Main Application Content */}
-            <main className="main-content">
-              <Routes>
-                <Route path="/" element={<DashboardPage />} />
-                <Route path="/device" element={<DevicePage />} />
-                <Route path="/test" element={<NewTestPage />} />
-                <Route path="/test/:testId" element={<TestDetailPage />} />
-                <Route path="/history" element={<HistoryPage />} />
-                <Route path="/datasets" element={<DatasetPage />} />
-                <Route path="/models" element={<ModelPage />} />
-                <Route path="/settings" element={<SettingsPage />} />
-                <Route path="/admin" element={<AdminPage />} />
-              </Routes>
-            </main>
-
-            {/* Mobile Bottom Navigation Bar */}
-            <MobileBottomBar
-              onToggleMore={() => setMobileDrawerOpen(o => !o)}
-            />
-          </div>
-        </BrowserRouter>
+          <AppLayout />
         </BluetoothProvider>
       </OperatorProvider>
     </ErrorBoundary>
