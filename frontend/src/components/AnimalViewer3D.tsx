@@ -5,9 +5,10 @@ import { Rotate3D, Sparkles, Scan, Info } from 'lucide-react';
 interface AnimalViewer3DProps {
   foodType: 'Milk' | 'Honey' | 'Paneer';
   isScanning?: boolean;
+  compact?: boolean;
 }
 
-export function AnimalViewer3D({ foodType, isScanning = false }: AnimalViewer3DProps) {
+export function AnimalViewer3D({ foodType, isScanning = false, compact = false }: AnimalViewer3DProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const [interactiveNotice, setInteractiveNotice] = useState(true);
   const [specimenScanned, setSpecimenScanned] = useState(false);
@@ -24,7 +25,7 @@ export function AnimalViewer3D({ foodType, isScanning = false }: AnimalViewer3DP
 
     // ── 1. Scene, Dynamic Perspective Camera & Renderer ──────────────
     const width = container.clientWidth || 340;
-    const height = container.clientHeight || 230;
+    const height = compact ? 180 : (container.clientHeight || 230);
 
     const scene = new THREE.Scene();
     
@@ -805,7 +806,7 @@ export function AnimalViewer3D({ foodType, isScanning = false }: AnimalViewer3DP
         ref={mountRef}
         style={{
           width: '100%',
-          height: '220px',
+          height: compact ? '175px' : '220px',
           cursor: 'grab',
           touchAction: 'none',
           position: 'relative',

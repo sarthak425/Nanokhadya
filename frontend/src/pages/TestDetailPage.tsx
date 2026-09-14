@@ -10,6 +10,7 @@ import { PCAChart } from '../components/PCAChart';
 import { CartridgeZoneView } from '../components/CartridgeZoneView';
 import { MultimodalSensorGrid } from '../components/MultimodalSensorGrid';
 import { AnimalViewer3D } from '../components/AnimalViewer3D';
+import { ChemicalBodyImpactView } from '../components/ChemicalBodyImpactView';
 import { useOperator } from '../context/OperatorContext';
 import { ArrowLeft, Download, Box } from 'lucide-react';
 
@@ -91,6 +92,14 @@ export function TestDetailPage() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* Chemical & Human Body Health Impact Assessment */}
+        <div style={{ marginBottom: 16 }}>
+          <ChemicalBodyImpactView
+            foodType={result.foodType as 'Milk' | 'Honey' | 'Paneer'}
+            selectedChemical={result.possibleIssue || result.detectedAdulterants?.[0] || 'Formalin'}
+          />
         </div>
 
         {/* 16-Zone Cartridge Architecture View */}
