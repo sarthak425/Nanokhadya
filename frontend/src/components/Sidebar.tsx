@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, Bluetooth, FlaskConical, BarChart3,
+  LayoutDashboard, Bluetooth, FlaskConical,
   History, Database, Brain, Settings, Sun, Moon, Shield,
   ChevronDown, UserCircle, Plus, X,
 } from 'lucide-react';
@@ -18,7 +18,6 @@ const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/device', icon: Bluetooth, label: 'Device' },
   { to: '/test', icon: FlaskConical, label: 'New Test' },
-  { to: '/analysis', icon: BarChart3, label: 'Analysis' },
   { to: '/history', icon: History, label: 'Test History' },
   { divider: true, label: 'Data & Models' },
   { to: '/datasets', icon: Database, label: 'Datasets' },

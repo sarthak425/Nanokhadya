@@ -38,18 +38,6 @@ function SettingsPage() {
   );
 }
 
-function AnalysisPage() {
-  return (
-    <div>
-      <div className="page-header"><h1 className="page-title">Analysis</h1><div className="page-subtitle">View spectral analysis from test history</div></div>
-      <div className="page-body">
-        <div className="empty-state card">
-          <p>Select a test from <a href="/history" style={{ color: 'var(--accent)' }}>Test History</a> to view its spectral analysis.</p>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default function App() {
   const [isDev, setIsDev] = useState(true);
@@ -109,7 +97,6 @@ export default function App() {
               <Route path="/device" element={<DevicePage />} />
               <Route path="/test" element={<NewTestPage />} />
               <Route path="/test/:testId" element={<TestDetailPage />} />
-              <Route path="/analysis" element={<AnalysisPage />} />
               <Route path="/history" element={<HistoryPage />} />
               <Route path="/datasets" element={<DatasetPage />} />
               <Route path="/models" element={<ModelPage />} />
