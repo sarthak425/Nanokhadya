@@ -4,6 +4,7 @@ import {
   History, Bluetooth, MoreHorizontal, User
 } from 'lucide-react';
 import { useOperator } from '../context/OperatorContext';
+import { useBluetooth } from '../context/BluetoothContext';
 
 interface MobileHeaderProps {
   isDev: boolean;
@@ -15,16 +16,17 @@ interface MobileHeaderProps {
 }
 
 export function MobileHeader({
-  isDev,
-  connected,
+  isDev: _isDev,
+  connected: _connected,
   onToggleDrawer,
   drawerOpen,
   theme,
   onToggleTheme,
 }: MobileHeaderProps) {
   const { currentOperator } = useOperator();
-  const statusDot = isDev ? 'yellow' : connected ? 'blue' : 'red';
-  const statusText = isDev ? 'Dev' : connected ? 'BLE' : 'Off';
+  const { isConnected, setIsModalOpen } = useBluetooth();
+  const statusDot = isConnected ? 'blue' : 'red';
+  const statusText = isConnected ? 'BLE' : 'Off';
 
   return (
     <header className="mobile-header">
@@ -40,7 +42,12 @@ export function MobileHeader({
       <div className="mobile-header-brand">
         <span className="mobile-header-title">NanoTech</span>
         <span className="mobile-header-subtitle">Food Safety</span>
-        <span className="mobile-status-pill">
+        <span
+          className="mobile-status-pill"
+          style={{ cursor: 'pointer' }}
+          onClick={() => setIsModalOpen(true)}
+          title="Manage Bluetooth reader"
+        >
           <span className={`dot ${statusDot}`} />
           {statusText}
         </span>

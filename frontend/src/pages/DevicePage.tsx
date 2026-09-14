@@ -1,27 +1,20 @@
 import { useEffect, useState } from 'react';
-import { getDeviceStatus, connectDevice } from '../services/api';
-import { Bluetooth, Activity } from 'lucide-react';
+import { getDeviceStatus } from '../services/api';
+import { Bluetooth, AlertTriangle, Power } from 'lucide-react';
 import { SensorTriad3D } from '../components/SensorTriad3D';
+import { useBluetooth } from '../context/BluetoothContext';
 
 export function DevicePage() {
-  const [status, setStatus] = useState<any>(null);
+  const { isConnected, device, disconnect, isScanning, setIsModalOpen } = useBluetooth();
+  const [_status, setStatus] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [connecting, setConnecting] = useState(false);
 
   const load = () => {
     setLoading(true);
     getDeviceStatus().then(setStatus).catch(() => {}).finally(() => setLoading(false));
   };
 
-  const handleConnect = async () => {
-    setConnecting(true);
-    try { const r = await connectDevice(); setStatus(r); } catch {}
-    finally { setConnecting(false); }
-  };
-
   useEffect(() => { load(); }, []);
-
-  const info = status?.deviceInfo ?? {};
 
   return (
     <div>
@@ -30,7 +23,12 @@ export function DevicePage() {
           <h1 className="page-title">Device Connection</h1>
           <div className="page-subtitle">AS7265x Triad Sensor Hardware & BLE Management</div>
         </div>
-        <button className="btn btn-outline" onClick={load}>Refresh</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-outline" onClick={() => setIsModalOpen(true)}>
+            <Bluetooth size={14} /> BLE Manager
+          </button>
+          <button className="btn btn-outline" onClick={load}>Refresh</button>
+        </div>
       </div>
 
       <div className="page-body">
@@ -45,61 +43,81 @@ export function DevicePage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 <div className="card">
                   <div className="card-header">
-                    <div className="card-title">Connection Status</div>
+                    <div className="card-title">Bluetooth Connection Status</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      {status?.isDevelopmentMode ? (
-                        <>
-                          <span className="dot yellow" />
-                          <span style={{ fontSize: 12, color: 'var(--suspected)' }}>Dev Mode</span>
-                        </>
-                      ) : status?.connected ? (
+                      {isConnected ? (
                         <>
                           <span className="dot blue" />
-                          <span style={{ fontSize: 12, color: 'var(--accent)' }}>Connected</span>
+                          <span style={{ fontSize: 12, color: 'var(--accent)', fontWeight: 600 }}>
+                            {device?.mode === 'HARDWARE_BLE' ? 'Hardware BLE Linked' : 'Virtual Reader Linked'}
+                          </span>
                         </>
                       ) : (
                         <>
                           <span className="dot red" />
-                          <span style={{ fontSize: 12, color: 'var(--adulterated)' }}>Offline</span>
+                          <span style={{ fontSize: 12, color: 'var(--adulterated)' }}>Reader Offline</span>
                         </>
                       )}
                     </div>
                   </div>
+
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {[
-                      ['Source Type', status?.sourceType],
-                      ['Device ID', info.device_id ?? '—'],
-                      ['Sensor', info.sensor_type ?? 'AS7265x'],
-                      ['Channels', `${info.channel_count ?? 18} channels`],
-                      ['Wavelength Range', info.wavelength_range ?? '410–940 nm'],
-                      ['Firmware', info.firmware_version ?? '—'],
+                      ['Connection State', isConnected ? 'CONNECTED' : 'DISCONNECTED'],
+                      ['Device Identifier', isConnected ? device?.name : 'None paired'],
+                      ['Hardware Link', isConnected ? (device?.mode === 'HARDWARE_BLE' ? 'Web Bluetooth (BLE 5.0)' : 'Simulated BLE Stream') : 'Offline'],
+                      ['Sensor Triad', 'AS72651 + AS72652 + AS72653'],
+                      ['Wavelength Range', '410 nm – 940 nm (18 Channels)'],
+                      ['Optical Chamber', isConnected ? 'LOCKED & CALIBRATED' : 'WAITING FOR READER'],
+                      ['Battery / Signal', isConnected ? `${device?.battery}% · ${device?.rssi} dBm` : '—'],
                     ].map(([k, v]) => (
                       <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border-light)', fontSize: 13 }}>
                         <span style={{ color: 'var(--text-muted)' }}>{k}</span>
-                        <span className="mono">{v}</span>
+                        <span className="mono" style={{ color: isConnected && k === 'Connection State' ? '#10b981' : undefined }}>{v}</span>
                       </div>
                     ))}
                   </div>
 
-                  {status?.sourceType === 'BLE' && !status?.connected && (
-                    <button
-                      className="btn btn-primary"
-                      style={{ width: '100%', marginTop: 16 }}
-                      onClick={handleConnect}
-                      disabled={connecting}
-                    >
-                      {connecting
-                        ? <><span className="loading-spinner" /> Scanning…</>
-                        : <><Bluetooth size={15} /> Connect to ESP32</>
-                      }
-                    </button>
-                  )}
+                  {/* Actions */}
+                  <div style={{ marginTop: 16 }}>
+                    {isConnected ? (
+                      <div style={{ display: 'flex', gap: 10 }}>
+                        <button
+                          className="btn btn-outline"
+                          style={{ flex: 1, borderColor: '#ef4444', color: '#ef4444' }}
+                          onClick={disconnect}
+                        >
+                          <Power size={14} /> Disconnect Device
+                        </button>
+                        <button
+                          className="btn btn-primary"
+                          style={{ flex: 1 }}
+                          onClick={() => setIsModalOpen(true)}
+                        >
+                          <Bluetooth size={14} /> Manage Link
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        className="btn btn-primary"
+                        style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                        onClick={() => setIsModalOpen(true)}
+                        disabled={isScanning}
+                      >
+                        {isScanning ? (
+                          <><span className="loading-spinner" /> Scanning Bluetooth Devices…</>
+                        ) : (
+                          <><Bluetooth size={16} /> Connect NanoSense Smart Reader (BLE)</>
+                        )}
+                      </button>
+                    )}
+                  </div>
                 </div>
 
-                {info.warning && (
-                  <div className="dev-banner">
-                    <Activity size={14} />
-                    {info.warning as string}
+                {!isConnected && (
+                  <div className="dev-banner" style={{ background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.3)', color: '#fef3c7' }}>
+                    <AlertTriangle size={16} color="#f59e0b" />
+                    <strong>Hardware Safety Guard:</strong> Without connecting the Bluetooth reader, test execution is disabled to ensure all food adulteration results originate from calibrated sensor readings.
                   </div>
                 )}
               </div>

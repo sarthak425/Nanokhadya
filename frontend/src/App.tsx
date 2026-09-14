@@ -12,6 +12,8 @@ import { ModelPage } from './pages/ModelPage';
 import { AdminPage } from './pages/AdminPage';
 import { getSystemStatus } from './services/api';
 import { OperatorProvider } from './context/OperatorContext';
+import { BluetoothProvider } from './context/BluetoothContext';
+import { BluetoothConnectModal } from './components/BluetoothConnectModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 function SettingsPage() {
@@ -72,8 +74,10 @@ export default function App() {
   return (
     <ErrorBoundary>
       <OperatorProvider>
-        <BrowserRouter>
-          <div className="app-layout">
+        <BluetoothProvider>
+          <BrowserRouter>
+            <BluetoothConnectModal />
+            <div className="app-layout">
             {/* Mobile Top Bar */}
             <MobileHeader
               isDev={isDev}
@@ -113,6 +117,7 @@ export default function App() {
             />
           </div>
         </BrowserRouter>
+        </BluetoothProvider>
       </OperatorProvider>
     </ErrorBoundary>
   );

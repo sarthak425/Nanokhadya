@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   CheckCircle, XCircle, Cpu, Activity,
   Database, Zap, FlaskConical, User, Box,
-  Droplets, Sparkles, ShieldCheck
+  Droplets, Sparkles, ShieldCheck, Bluetooth, AlertTriangle
 } from 'lucide-react';
 import { runTest, getOperators } from '../services/api';
 import type { TestResult, Operator } from '../services/api';
@@ -14,6 +14,7 @@ import { ChannelTable } from '../components/ChannelTable';
 import { PCAChart } from '../components/PCAChart';
 import { CartridgeZoneView } from '../components/CartridgeZoneView';
 import { useOperator } from '../context/OperatorContext';
+import { useBluetooth } from '../context/BluetoothContext';
 
 type StepStatus = 'pending' | 'active' | 'done' | 'error';
 
@@ -35,6 +36,7 @@ type ValidFood = typeof FOOD_TYPES[number];
 export function NewTestPage() {
   const navigate = useNavigate();
   const { currentOperator, operators: contextOps, setCurrentOperator } = useOperator();
+  const { isConnected, device, setIsModalOpen } = useBluetooth();
   const [foodType, setFoodType] = useState<ValidFood>('Milk');
   const [operatorId, setOperatorId] = useState(currentOperator?.id ?? 'default-operator');
   const [operators, setOperators] = useState<Operator[]>(contextOps);
@@ -75,6 +77,11 @@ export function NewTestPage() {
   const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
   const handleRunTest = async () => {
+    if (!isConnected) {
+      setIsModalOpen(true);
+      return;
+    }
+
     setRunning(true);
     setResult(null);
     setError(null);
@@ -120,6 +127,60 @@ export function NewTestPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div className="card">
               <div className="card-header"><div className="card-title">Test Configuration</div></div>
+
+              {/* Hardware Connection Guard Banner */}
+              {!isConnected ? (
+                <div style={{
+                  padding: '12px 14px',
+                  background: 'rgba(239, 68, 68, 0.08)',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  borderRadius: 10,
+                  marginBottom: 16,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                }}>
+                  <AlertTriangle size={20} color="#ef4444" style={{ flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#fca5a5' }}>
+                      Hardware Reader Offline
+                    </div>
+                    <div style={{ fontSize: 11, color: '#94a3b8' }}>
+                      Pair your NanoSense ESP32 reader via Bluetooth to acquire cartridge readings.
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div style={{
+                  padding: '10px 14px',
+                  background: 'rgba(16, 185, 129, 0.08)',
+                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                  borderRadius: 10,
+                  marginBottom: 16,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Bluetooth size={16} color="#10b981" />
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#10b981' }}>
+                        {device?.name}
+                      </div>
+                      <div style={{ fontSize: 10, color: '#94a3b8' }}>
+                        BLE Connected · Battery: {device?.battery}% · Chamber: Ready
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setIsModalOpen(true)}
+                    style={{ background: 'transparent', border: 'none', color: '#38bdf8', fontSize: 11, cursor: 'pointer', textDecoration: 'underline' }}
+                  >
+                    Manage
+                  </button>
+                </div>
+              )}
+
               <div className="form-group mb-4">
                 <label className="form-label">Food Type (Universal Cartridge)</label>
                 <select
@@ -168,21 +229,43 @@ export function NewTestPage() {
               <div className="form-group mb-4">
                 <label className="form-label">Data Source</label>
                 <div style={{ padding: '9px 12px', background: 'var(--bg-secondary)', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, color: 'var(--text-secondary)' }}>
-                  Development Mode (AS7265x Triad Simulator)
+                  {isConnected
+                    ? (device?.mode === 'HARDWARE_BLE' ? 'Bluetooth Low Energy (ESP32 Live Stream)' : 'Virtual Hardware Simulator (BLE Bridge)')
+                    : 'Device Disconnected — Connect via Bluetooth'}
                 </div>
               </div>
-              <button
-                className="btn btn-primary btn-large"
-                style={{ width: '100%' }}
-                onClick={handleRunTest}
-                disabled={running}
-              >
-                {running ? (
-                  <><span className="loading-spinner" /> Running Spectral Pipeline…</>
-                ) : (
-                  <><FlaskConical size={16} /> Start Test</>
-                )}
-              </button>
+
+              {!isConnected ? (
+                <button
+                  className="btn btn-primary btn-large"
+                  style={{
+                    width: '100%',
+                    background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                    border: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                  }}
+                  onClick={() => setIsModalOpen(true)}
+                >
+                  <Bluetooth size={16} /> Connect Reader via Bluetooth
+                </button>
+              ) : (
+                <button
+                  className="btn btn-primary btn-large"
+                  style={{ width: '100%' }}
+                  onClick={handleRunTest}
+                  disabled={running}
+                >
+                  {running ? (
+                    <><span className="loading-spinner" /> Acquiring Cartridge Data…</>
+                  ) : (
+                    <><FlaskConical size={16} /> Acquire & Test Cartridge</>
+                  )}
+                </button>
+              )}
+
               {error && (
                 <div style={{ marginTop: 12, padding: '10px 14px', background: 'var(--adulterated-bg)', border: '1px solid var(--adulterated)', borderRadius: 8, color: 'var(--adulterated)', fontSize: 13 }}>
                   {error}
@@ -215,6 +298,24 @@ export function NewTestPage() {
                   selectedFood={foodType}
                   onFoodChange={(f) => setFoodType(f)}
                 />
+
+                {!isConnected && (
+                  <div className="card" style={{ textAlign: 'center', padding: '16px', border: '1px dashed #334155', background: 'transparent' }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+                      Hardware Device Connection Required
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4, marginBottom: 12 }}>
+                      Cartridge test results will only appear once the Bluetooth reader is connected and scans the 16 sensing zones.
+                    </div>
+                    <button
+                      className="btn btn-outline"
+                      style={{ fontSize: 12, padding: '6px 14px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                      onClick={() => setIsModalOpen(true)}
+                    >
+                      <Bluetooth size={14} /> Pair Reader Now
+                    </button>
+                  </div>
+                )}
                 {running && (
                   <div className="card" style={{ textAlign: 'center', padding: '24px' }}>
                     <div className="loading-spinner" style={{ margin: '0 auto 12px auto' }} />

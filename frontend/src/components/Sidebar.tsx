@@ -6,6 +6,7 @@ import {
   ChevronDown, UserCircle, Plus, X,
 } from 'lucide-react';
 import { useOperator } from '../context/OperatorContext';
+import { useBluetooth } from '../context/BluetoothContext';
 
 interface SidebarProps {
   isDev: boolean;
@@ -45,8 +46,9 @@ function applyTheme(theme: 'dark' | 'light') {
   try { localStorage.setItem('nanotech-theme', theme); } catch {}
 }
 
-export function Sidebar({ isDev, connected, mobileOpen = false, onClose }: SidebarProps) {
+export function Sidebar({ isDev: _isDev, connected: _connected, mobileOpen = false, onClose }: SidebarProps) {
   const { currentOperator, operators, setCurrentOperator } = useOperator();
+  const { isConnected, setIsModalOpen, device } = useBluetooth();
   const [theme, setTheme]         = useState<'dark' | 'light'>(getInitialTheme);
   const [opDropOpen, setOpDropOpen] = useState(false);
   const navigate = useNavigate();
@@ -59,9 +61,9 @@ export function Sidebar({ isDev, connected, mobileOpen = false, onClose }: Sideb
     applyTheme(next);
   };
 
-  const statusDot  = isDev ? 'yellow' : connected ? 'blue' : 'red';
-  const statusText = isDev ? 'Dev Mode' : connected ? 'BLE Connected' : 'BLE Offline';
-  const badgeClass = isDev ? 'development' : 'ble';
+  const statusDot  = isConnected ? 'blue' : 'red';
+  const statusText = isConnected ? (device?.mode === 'HARDWARE_BLE' ? 'BLE Hardware' : 'BLE Connected') : 'BLE Disconnected';
+  const badgeClass = isConnected ? 'ble' : 'development';
 
   return (
     <>
@@ -197,7 +199,12 @@ export function Sidebar({ isDev, connected, mobileOpen = false, onClose }: Sideb
         </nav>
 
         <div className="sidebar-footer">
-          <div className={`source-badge ${badgeClass}`}>
+          <div
+            className={`source-badge ${badgeClass}`}
+            onClick={() => setIsModalOpen(true)}
+            style={{ cursor: 'pointer' }}
+            title="Click to manage Bluetooth connection"
+          >
             <span className={`dot ${statusDot}`} />
             {statusText}
           </div>
