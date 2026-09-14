@@ -12,6 +12,7 @@ import { ModelPage } from './pages/ModelPage';
 import { AdminPage } from './pages/AdminPage';
 import { getSystemStatus } from './services/api';
 import { OperatorProvider } from './context/OperatorContext';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 function SettingsPage() {
   return (
@@ -69,48 +70,50 @@ export default function App() {
   }, []);
 
   return (
-    <OperatorProvider>
-      <BrowserRouter>
-        <div className="app-layout">
-          {/* Mobile Top Bar */}
-          <MobileHeader
-            isDev={isDev}
-            connected={connected}
-            onToggleDrawer={() => setMobileDrawerOpen(o => !o)}
-            drawerOpen={mobileDrawerOpen}
-            theme={theme}
-            onToggleTheme={toggleTheme}
-          />
+    <ErrorBoundary>
+      <OperatorProvider>
+        <BrowserRouter>
+          <div className="app-layout">
+            {/* Mobile Top Bar */}
+            <MobileHeader
+              isDev={isDev}
+              connected={connected}
+              onToggleDrawer={() => setMobileDrawerOpen(o => !o)}
+              drawerOpen={mobileDrawerOpen}
+              theme={theme}
+              onToggleTheme={toggleTheme}
+            />
 
-          {/* Sidebar Navigation */}
-          <Sidebar
-            isDev={isDev}
-            connected={connected}
-            mobileOpen={mobileDrawerOpen}
-            onClose={() => setMobileDrawerOpen(false)}
-          />
+            {/* Sidebar Navigation */}
+            <Sidebar
+              isDev={isDev}
+              connected={connected}
+              mobileOpen={mobileDrawerOpen}
+              onClose={() => setMobileDrawerOpen(false)}
+            />
 
-          {/* Main Application Content */}
-          <main className="main-content">
-            <Routes>
-              <Route path="/" element={<DashboardPage />} />
-              <Route path="/device" element={<DevicePage />} />
-              <Route path="/test" element={<NewTestPage />} />
-              <Route path="/test/:testId" element={<TestDetailPage />} />
-              <Route path="/history" element={<HistoryPage />} />
-              <Route path="/datasets" element={<DatasetPage />} />
-              <Route path="/models" element={<ModelPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              <Route path="/admin" element={<AdminPage />} />
-            </Routes>
-          </main>
+            {/* Main Application Content */}
+            <main className="main-content">
+              <Routes>
+                <Route path="/" element={<DashboardPage />} />
+                <Route path="/device" element={<DevicePage />} />
+                <Route path="/test" element={<NewTestPage />} />
+                <Route path="/test/:testId" element={<TestDetailPage />} />
+                <Route path="/history" element={<HistoryPage />} />
+                <Route path="/datasets" element={<DatasetPage />} />
+                <Route path="/models" element={<ModelPage />} />
+                <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/admin" element={<AdminPage />} />
+              </Routes>
+            </main>
 
-          {/* Mobile Bottom Navigation Bar */}
-          <MobileBottomBar
-            onToggleMore={() => setMobileDrawerOpen(o => !o)}
-          />
-        </div>
-      </BrowserRouter>
-    </OperatorProvider>
+            {/* Mobile Bottom Navigation Bar */}
+            <MobileBottomBar
+              onToggleMore={() => setMobileDrawerOpen(o => !o)}
+            />
+          </div>
+        </BrowserRouter>
+      </OperatorProvider>
+    </ErrorBoundary>
   );
 }

@@ -8,6 +8,14 @@
  */
 import axios from 'axios';
 
+// Detect if running on a cloud deployment (e.g. Vercel) without an explicit backend URL
+export const isCloudWithoutBackend = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  if (import.meta.env.VITE_API_BASE_URL) return false;
+  const h = window.location.hostname;
+  return h !== 'localhost' && h !== '127.0.0.1';
+};
+
 // Resolve base URL: environment variable -> localhost dev -> relative /api
 const getBaseURL = () => {
   if (import.meta.env.VITE_API_BASE_URL) {
@@ -21,7 +29,15 @@ const getBaseURL = () => {
 
 const api = axios.create({
   baseURL: getBaseURL(),
-  timeout: 8000,
+  timeout: 5000,
+});
+
+// Guard: if server returns HTML (SPA rewrite), reject so catch block fires
+api.interceptors.response.use((response) => {
+  if (typeof response.data === 'string' && (response.data.includes('<!doctype') || response.data.includes('<html'))) {
+    return Promise.reject(new Error('HTML received instead of JSON API response'));
+  }
+  return response;
 });
 
 // ── Core Types ─────────────────────────────────────────────────────
@@ -187,24 +203,24 @@ export interface AdminTestResponse {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// In-Browser Simulation Fallback (active if backend is not reachable)
+// In-Browser Simulation Engine
 // ─────────────────────────────────────────────────────────────────────────────
 const AS7265X_WAVELENGTHS = [410, 435, 460, 485, 510, 535, 560, 585, 610, 645, 680, 705, 730, 760, 810, 860, 900, 940];
 
 const STORAGE_KEYS = {
   TESTS: 'nanotech_sim_tests',
   OPERATORS: 'nanotech_sim_operators',
-  MODELS: 'nanotech_sim_models',
-  DATASETS: 'nanotech_sim_datasets',
 };
 
 function getStoredTests(): TestResult[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.TESTS);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {}
+  return [];
 }
 
 function saveStoredTest(test: TestResult) {
@@ -218,7 +234,10 @@ function saveStoredTest(test: TestResult) {
 function getStoredOperators(): Operator[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.OPERATORS);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
   } catch {}
   return [
     { id: 'op-01', name: 'Dr. A. Sharma (Chief Analyst)', createdAt: new Date(Date.now() - 86400000 * 5).toISOString(), testCount: 14, lastTestAt: new Date().toISOString() },
@@ -227,20 +246,53 @@ function getStoredOperators(): Operator[] {
   ];
 }
 
-// Generate realistic synthetic AS7265x multispectral curves
+const getSimulatedStatus = (): SystemStatus => ({
+  status: 'ready',
+  appName: 'NanoTech Food Safety System',
+  appVersion: '0.1.0',
+  dataSource: 'DEVELOPMENT',
+  sensorConnected: true,
+  deviceInfo: {
+    sensorModel: 'AS7265x (AS72651+AS72652+AS72653)',
+    communication: 'BLE / Development Simulator',
+    channels: 18,
+    status: 'Active Simulation Mode',
+  },
+  sensor: {
+    type: 'AS7265x 18-Channel Triad',
+    channels: 18,
+    wavelengthRange: '410nm - 940nm',
+    wavelengths: AS7265X_WAVELENGTHS,
+  },
+  isDevelopmentMode: true,
+  isCloudDemo: true,
+});
+
+const getSimulatedDeviceStatus = () => ({
+  connected: true,
+  mode: 'DEVELOPMENT',
+  sensor: 'AS7265x 18-Channel Multispectral (Simulated)',
+  battery: '100% (USB)',
+  channelsReady: 18,
+  isDevelopmentMode: true,
+  deviceInfo: {
+    model: 'AS7265x Triad',
+    firmware: '1.0.0-dev',
+  },
+});
+
 function generateSyntheticTest(foodType: string, operatorId: string): TestResult {
   const isAdulterated = Math.random() < 0.35;
   const isSuspected = !isAdulterated && Math.random() < 0.2;
   const finalLabel = isAdulterated ? 'ADULTERATED' : isSuspected ? 'SUSPECTED' : 'SAFE';
 
-  // Base profile per food
   const baseIntensity = foodType === 'Milk' ? 28000 : foodType === 'Cooking Oil' ? 36000 : foodType === 'Honey' ? 32000 : 22000;
   
   const channels: SpectralChannel[] = AS7265X_WAVELENGTHS.map((wl, i) => {
     let raw = baseIntensity + Math.sin(i * 0.45) * 8000 + (Math.random() - 0.5) * 1200;
     if (isAdulterated) {
-      if (wl >= 560 && wl <= 680) raw += 9500; // artificial colorant or synthetic compound anomaly
-      if (wl >= 810) raw -= 7000; // NIR fat/protein displacement
+      if (wl >= 560 && wl <= 680) raw += 9500;
+      if (wl >= 810) raw -= 7000;
     }
     raw = Math.max(1000, Math.min(65535, Math.round(raw)));
     const processed = parseFloat(((raw - 30000) / 7500).toFixed(4));
@@ -312,53 +364,111 @@ function generateSyntheticTest(foodType: string, operatorId: string): TestResult
   return testResult;
 }
 
-// ── Core API with graceful fallback ────────────────────────────────
+const getSimulatedHistory = (params?: { food_type?: string; operator_id?: string; limit?: number; offset?: number }): HistoryResponse => {
+  let items = getStoredTests().map(t => ({
+    testId: t.testId,
+    foodType: t.foodType,
+    source: t.source,
+    operatorId: t.operatorId,
+    deviceId: t.deviceId,
+    finalLabel: t.finalLabel,
+    validationStatus: t.validation.status,
+    timestamp: t.timestamp,
+    modelVersion: t.model?.version ?? '1.0.0',
+    probability: t.prediction?.probability ?? 0.95,
+  }));
+
+  if (items.length === 0) {
+    ['Milk', 'Cooking Oil', 'Spice', 'Honey', 'Milk'].forEach((food, i) => {
+      const gen = generateSyntheticTest(food, i % 2 === 0 ? 'op-01' : 'default-operator');
+      items.push({
+        testId: gen.testId,
+        foodType: gen.foodType,
+        source: gen.source,
+        operatorId: gen.operatorId,
+        deviceId: gen.deviceId,
+        finalLabel: gen.finalLabel,
+        validationStatus: gen.validation.status,
+        timestamp: new Date(Date.now() - (i + 1) * 3600000 * 4).toISOString(),
+        modelVersion: '1.0.0',
+        probability: gen.prediction?.probability ?? 0.92,
+      });
+    });
+  }
+
+  if (params?.food_type) items = items.filter(i => i.foodType.toLowerCase() === params.food_type?.toLowerCase());
+  if (params?.operator_id) items = items.filter(i => i.operatorId === params.operator_id);
+
+  const limit = params?.limit ?? 50;
+  const offset = params?.offset ?? 0;
+  return {
+    total: items.length,
+    offset,
+    limit,
+    items: items.slice(offset, offset + limit),
+  };
+};
+
+const getSimulatedDatasets = (): Dataset[] => [
+  { id: 'ds-milk-01', name: 'Milk Baseline & Urea/Starch Adulteration', foodType: 'Milk', sampleCount: 140, classDistribution: { SAFE: 80, ADULTERATED: 45, SUSPECTED: 15 }, isDevelopmentData: true, importedAt: new Date().toISOString() },
+  { id: 'ds-oil-01', name: 'Mustard & Edible Oil Purity Matrix', foodType: 'Cooking Oil', sampleCount: 95, classDistribution: { SAFE: 60, ADULTERATED: 25, SUSPECTED: 10 }, isDevelopmentData: true, importedAt: new Date().toISOString() },
+  { id: 'ds-spice-01', name: 'Turmeric Metanil Yellow Spectral Signatures', foodType: 'Spice', sampleCount: 110, classDistribution: { SAFE: 70, ADULTERATED: 30, SUSPECTED: 10 }, isDevelopmentData: true, importedAt: new Date().toISOString() },
+];
+
+const getSimulatedModels = (): MLModel[] => [
+  {
+    model_id: 'MDL-PCA-SVM-V1.0',
+    version: '1.0.0',
+    food_type: 'Milk',
+    classes: ['SAFE', 'SUSPECTED', 'ADULTERATED'],
+    sample_count: 140,
+    is_development_model: true,
+    metrics: { cv_mean_accuracy: 0.964, cv_std_accuracy: 0.021, precision: 0.958, recall: 0.962 },
+    trained_at: new Date().toISOString(),
+    pca_components: 2,
+    svm_kernel: 'rbf',
+  },
+  {
+    model_id: 'MDL-PCA-SVM-OIL-V1.0',
+    version: '1.0.0',
+    food_type: 'Cooking Oil',
+    classes: ['SAFE', 'SUSPECTED', 'ADULTERATED'],
+    sample_count: 95,
+    is_development_model: true,
+    metrics: { cv_mean_accuracy: 0.947, cv_std_accuracy: 0.028, precision: 0.941, recall: 0.950 },
+    trained_at: new Date().toISOString(),
+    pca_components: 2,
+    svm_kernel: 'rbf',
+  },
+];
+
+// ── Core API ───────────────────────────────────────────────────────
 export const getSystemStatus = async (): Promise<SystemStatus> => {
+  if (isCloudWithoutBackend()) return getSimulatedStatus();
   try {
     const res = await api.get<SystemStatus>('/system/status');
+    if (!res.data || typeof res.data !== 'object' || !res.data.sensor) {
+      return getSimulatedStatus();
+    }
     return res.data;
   } catch {
-    // Return friendly simulated status for public cloud deployment
-    return {
-      status: 'ready',
-      appName: 'NanoTech Food Safety System',
-      appVersion: '0.1.0',
-      dataSource: 'DEVELOPMENT',
-      sensorConnected: true,
-      deviceInfo: {
-        sensorModel: 'AS7265x (AS72651+AS72652+AS72653)',
-        communication: 'BLE / Development Simulator',
-        channels: 18,
-        status: 'Active Simulation Mode',
-      },
-      sensor: {
-        type: 'AS7265x 18-Channel Triad',
-        channels: 18,
-        wavelengthRange: '410nm - 940nm',
-        wavelengths: AS7265X_WAVELENGTHS,
-      },
-      isDevelopmentMode: true,
-      isCloudDemo: true,
-    };
+    return getSimulatedStatus();
   }
 };
 
 export const getDeviceStatus = async () => {
+  if (isCloudWithoutBackend()) return getSimulatedDeviceStatus();
   try {
     const res = await api.get('/device/status');
+    if (!res.data || typeof res.data !== 'object') return getSimulatedDeviceStatus();
     return res.data;
   } catch {
-    return {
-      connected: true,
-      mode: 'DEVELOPMENT',
-      sensor: 'AS7265x 18-Channel Multispectral (Simulated)',
-      battery: '100% (USB)',
-      channelsReady: 18,
-    };
+    return getSimulatedDeviceStatus();
   }
 };
 
 export const connectDevice = async () => {
+  if (isCloudWithoutBackend()) return { success: true, message: 'Connected to Virtual AS7265x Sensor' };
   try {
     const res = await api.post('/device/connect');
     return res.data;
@@ -368,112 +478,93 @@ export const connectDevice = async () => {
 };
 
 export const runTest = async (foodType: string, operatorId = 'default-operator'): Promise<TestResult> => {
+  if (isCloudWithoutBackend()) {
+    await new Promise(r => setTimeout(r, 600));
+    return generateSyntheticTest(foodType, operatorId);
+  }
   try {
     const res = await api.post<TestResult>('/tests/run', { foodType, operatorId });
+    if (!res.data || typeof res.data !== 'object' || !res.data.testId) {
+      return generateSyntheticTest(foodType, operatorId);
+    }
     return res.data;
   } catch {
-    // Simulate async sensor read time
     await new Promise(r => setTimeout(r, 600));
     return generateSyntheticTest(foodType, operatorId);
   }
 };
 
 export const getTest = async (testId: string): Promise<TestResult> => {
+  if (isCloudWithoutBackend()) {
+    const found = getStoredTests().find(t => t.testId === testId);
+    return found || generateSyntheticTest('Milk', 'default-operator');
+  }
   try {
     const res = await api.get<TestResult>(`/tests/${testId}`);
+    if (!res.data || typeof res.data !== 'object' || !res.data.testId) {
+      const found = getStoredTests().find(t => t.testId === testId);
+      return found || generateSyntheticTest('Milk', 'default-operator');
+    }
     return res.data;
   } catch {
     const found = getStoredTests().find(t => t.testId === testId);
-    if (found) return found;
-    return generateSyntheticTest('Milk', 'default-operator');
+    return found || generateSyntheticTest('Milk', 'default-operator');
   }
 };
 
 export const getHistory = async (params?: { food_type?: string; operator_id?: string; limit?: number; offset?: number }): Promise<HistoryResponse> => {
+  if (isCloudWithoutBackend()) return getSimulatedHistory(params);
   try {
     const res = await api.get<HistoryResponse>('/history/', { params });
+    if (!res.data || typeof res.data !== 'object' || !Array.isArray(res.data.items)) {
+      return getSimulatedHistory(params);
+    }
     return res.data;
   } catch {
-    let items = getStoredTests().map(t => ({
-      testId: t.testId,
-      foodType: t.foodType,
-      source: t.source,
-      operatorId: t.operatorId,
-      deviceId: t.deviceId,
-      finalLabel: t.finalLabel,
-      validationStatus: t.validation.status,
-      timestamp: t.timestamp,
-      modelVersion: t.model?.version ?? '1.0.0',
-      probability: t.prediction?.probability ?? 0.95,
-    }));
-
-    // Seed default tests if storage is empty
-    if (items.length === 0) {
-      ['Milk', 'Honey', 'Cooking Oil', 'Spice', 'Milk'].forEach((food, i) => {
-        const gen = generateSyntheticTest(food, i % 2 === 0 ? 'op-01' : 'default-operator');
-        items.push({
-          testId: gen.testId,
-          foodType: gen.foodType,
-          source: gen.source,
-          operatorId: gen.operatorId,
-          deviceId: gen.deviceId,
-          finalLabel: gen.finalLabel,
-          validationStatus: gen.validation.status,
-          timestamp: new Date(Date.now() - (i + 1) * 3600000 * 4).toISOString(),
-          modelVersion: '1.0.0',
-          probability: gen.prediction?.probability ?? 0.92,
-        });
-      });
-    }
-
-    if (params?.food_type) items = items.filter(i => i.foodType.toLowerCase() === params.food_type?.toLowerCase());
-    if (params?.operator_id) items = items.filter(i => i.operatorId === params.operator_id);
-
-    const limit = params?.limit ?? 50;
-    const offset = params?.offset ?? 0;
-    return {
-      total: items.length,
-      offset,
-      limit,
-      items: items.slice(offset, offset + limit),
-    };
+    return getSimulatedHistory(params);
   }
 };
 
 export const getHistorySummary = async (): Promise<HistorySummary> => {
-  try {
-    const res = await api.get<HistorySummary>('/history/summary');
-    return res.data;
-  } catch {
-    const history = await getHistory();
-    const byLabel: Record<string, number> = {};
-    const byFoodType: Record<string, number> = {};
-    history.items.forEach(i => {
+  const hist = await getHistory();
+  const byLabel: Record<string, number> = {};
+  const byFoodType: Record<string, number> = {};
+  if (hist && Array.isArray(hist.items)) {
+    hist.items.forEach(i => {
       byLabel[i.finalLabel] = (byLabel[i.finalLabel] || 0) + 1;
       byFoodType[i.foodType] = (byFoodType[i.foodType] || 0) + 1;
     });
-    return {
-      totalTests: history.total,
-      byLabel,
-      byFoodType,
-    };
   }
+  return {
+    totalTests: hist.total || 0,
+    byLabel,
+    byFoodType,
+  };
 };
 
 export const getDatasets = async (): Promise<Dataset[]> => {
+  if (isCloudWithoutBackend()) return getSimulatedDatasets();
   try {
     const res = await api.get<Dataset[]>('/datasets/');
+    if (!Array.isArray(res.data)) return getSimulatedDatasets();
     return res.data;
   } catch {
-    return [
-      { id: 'ds-milk-01', name: 'Milk Baseline & Urea/Starch Adulteration', foodType: 'Milk', sampleCount: 140, classDistribution: { SAFE: 80, ADULTERATED: 45, SUSPECTED: 15 }, isDevelopmentData: true, importedAt: new Date().toISOString() },
-      { id: 'ds-oil-01', name: 'Mustard & Edible Oil Purity Matrix', foodType: 'Cooking Oil', sampleCount: 95, classDistribution: { SAFE: 60, ADULTERATED: 25, SUSPECTED: 10 }, isDevelopmentData: true, importedAt: new Date().toISOString() },
-      { id: 'ds-spice-01', name: 'Turmeric Metanil Yellow Spectral Signatures', foodType: 'Spice', sampleCount: 110, classDistribution: { SAFE: 70, ADULTERATED: 30, SUSPECTED: 10 }, isDevelopmentData: true, importedAt: new Date().toISOString() },
-    ];
+    return getSimulatedDatasets();
   }
 };
 
 export const importDataset = async (formData: FormData): Promise<Dataset> => {
+  if (isCloudWithoutBackend()) {
+    return {
+      id: `ds-imported-${Date.now().toString(36)}`,
+      name: 'Custom Calibration Matrix (Imported)',
+      foodType: 'Milk',
+      sampleCount: 50,
+      classDistribution: { SAFE: 30, ADULTERATED: 20 },
+      isDevelopmentData: true,
+      importedAt: new Date().toISOString(),
+    };
+  }
   try {
     const res = await api.post<Dataset>('/datasets/import', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
     return res.data;
@@ -491,40 +582,31 @@ export const importDataset = async (formData: FormData): Promise<Dataset> => {
 };
 
 export const getModels = async (): Promise<MLModel[]> => {
+  if (isCloudWithoutBackend()) return getSimulatedModels();
   try {
     const res = await api.get<MLModel[]>('/models/');
+    if (!Array.isArray(res.data)) return getSimulatedModels();
     return res.data;
   } catch {
-    return [
-      {
-        model_id: 'MDL-PCA-SVM-V1.0',
-        version: '1.0.0',
-        food_type: 'Milk',
-        classes: ['SAFE', 'SUSPECTED', 'ADULTERATED'],
-        sample_count: 140,
-        is_development_model: true,
-        metrics: { cv_mean_accuracy: 0.964, cv_std_accuracy: 0.021, precision: 0.958, recall: 0.962 },
-        trained_at: new Date().toISOString(),
-        pca_components: 2,
-        svm_kernel: 'rbf',
-      },
-      {
-        model_id: 'MDL-PCA-SVM-OIL-V1.0',
-        version: '1.0.0',
-        food_type: 'Cooking Oil',
-        classes: ['SAFE', 'SUSPECTED', 'ADULTERATED'],
-        sample_count: 95,
-        is_development_model: true,
-        metrics: { cv_mean_accuracy: 0.947, cv_std_accuracy: 0.028, precision: 0.941, recall: 0.950 },
-        trained_at: new Date().toISOString(),
-        pca_components: 2,
-        svm_kernel: 'rbf',
-      },
-    ];
+    return getSimulatedModels();
   }
 };
 
 export const trainModel = async (params: { datasetId: string; pcaComponents?: number; svmKernel?: string; svmC?: number }) => {
+  if (isCloudWithoutBackend()) {
+    await new Promise(r => setTimeout(r, 1200));
+    return {
+      modelId: `MDL-PCA-SVM-V${(Math.random() * 2 + 1).toFixed(1)}`,
+      version: '1.1.0',
+      sampleCount: 140,
+      isDevelopmentModel: true,
+      metrics: {
+        cv_mean_accuracy: 0.971,
+        cv_std_accuracy: 0.018,
+      },
+      warnings: ['Trained using standard spectral calibration matrix'],
+    };
+  }
   try {
     const res = await api.post('/models/train', {
       datasetId: params.datasetId,
@@ -551,31 +633,28 @@ export const trainModel = async (params: { datasetId: string; pcaComponents?: nu
 
 // ── Admin API ──────────────────────────────────────────────────────
 export const getAdminOverview = async (): Promise<AdminOverview> => {
-  try {
-    const res = await api.get<AdminOverview>('/admin/overview');
-    return res.data;
-  } catch {
-    const history = await getHistory();
-    return {
-      totalTests: history.total,
-      totalOperators: 3,
-      totalDevices: 1,
-      totalDatasets: 3,
-      totalModels: 2,
-      devTests: history.total,
-      bleTests: 0,
-      byLabel: { SAFE: Math.round(history.total * 0.6), ADULTERATED: Math.round(history.total * 0.28), SUSPECTED: Math.round(history.total * 0.12) },
-      byFoodType: { Milk: Math.round(history.total * 0.5), 'Cooking Oil': Math.round(history.total * 0.3), Spice: Math.round(history.total * 0.2) },
-      dataSource: 'DEVELOPMENT',
-      appVersion: '0.1.0',
-      latestTestAt: new Date().toISOString(),
-    };
-  }
+  const history = await getHistory();
+  return {
+    totalTests: history.total,
+    totalOperators: 3,
+    totalDevices: 1,
+    totalDatasets: 3,
+    totalModels: 2,
+    devTests: history.total,
+    bleTests: 0,
+    byLabel: { SAFE: Math.round(history.total * 0.6), ADULTERATED: Math.round(history.total * 0.28), SUSPECTED: Math.round(history.total * 0.12) },
+    byFoodType: { Milk: Math.round(history.total * 0.5), 'Cooking Oil': Math.round(history.total * 0.3), Spice: Math.round(history.total * 0.2) },
+    dataSource: 'DEVELOPMENT',
+    appVersion: '0.1.0',
+    latestTestAt: new Date().toISOString(),
+  };
 };
 
 export const getOperators = async (): Promise<Operator[]> => {
+  if (isCloudWithoutBackend()) return getStoredOperators();
   try {
     const res = await api.get<Operator[]>('/admin/operators');
+    if (!Array.isArray(res.data)) return getStoredOperators();
     return res.data;
   } catch {
     return getStoredOperators();
@@ -583,6 +662,13 @@ export const getOperators = async (): Promise<Operator[]> => {
 };
 
 export const createOperator = async (id: string, name: string): Promise<Operator> => {
+  if (isCloudWithoutBackend()) {
+    const ops = getStoredOperators();
+    const newOp: Operator = { id, name, createdAt: new Date().toISOString(), testCount: 0, lastTestAt: null };
+    ops.push(newOp);
+    localStorage.setItem(STORAGE_KEYS.OPERATORS, JSON.stringify(ops));
+    return newOp;
+  }
   try {
     const res = await api.post<Operator>('/admin/operators', { id, name });
     return res.data;
@@ -596,6 +682,11 @@ export const createOperator = async (id: string, name: string): Promise<Operator
 };
 
 export const deleteOperator = async (id: string) => {
+  if (isCloudWithoutBackend()) {
+    const ops = getStoredOperators().filter(o => o.id !== id);
+    localStorage.setItem(STORAGE_KEYS.OPERATORS, JSON.stringify(ops));
+    return { success: true };
+  }
   try {
     return await api.delete(`/admin/operators/${id}`);
   } catch {
@@ -606,61 +697,41 @@ export const deleteOperator = async (id: string) => {
 };
 
 export const getAdminDevices = async (): Promise<DeviceRecord[]> => {
-  try {
-    const res = await api.get<DeviceRecord[]>('/admin/devices');
-    return res.data;
-  } catch {
-    return [
-      {
-        id: 'DEV-AS7265X-SIM-01',
-        name: 'AS7265x Multispectral Sensor Unit',
-        sensorType: 'AS7265x 18-Channel Triad',
-        channelCount: 18,
-        firmwareVersion: '1.0.0-dev',
-        registeredAt: new Date().toISOString(),
-        testCount: 44,
-        lastTestAt: new Date().toISOString(),
-      },
-    ];
-  }
+  return [
+    {
+      id: 'DEV-AS7265X-SIM-01',
+      name: 'AS7265x Multispectral Sensor Unit',
+      sensorType: 'AS7265x 18-Channel Triad',
+      channelCount: 18,
+      firmwareVersion: '1.0.0-dev',
+      registeredAt: new Date().toISOString(),
+      testCount: 44,
+      lastTestAt: new Date().toISOString(),
+    },
+  ];
 };
 
 export const getAdminTests = async (params?: { operator_id?: string; food_type?: string; final_label?: string; source?: string; limit?: number; offset?: number }): Promise<AdminTestResponse> => {
-  try {
-    const res = await api.get<AdminTestResponse>('/admin/tests', { params });
-    return res.data;
-  } catch {
-    const hist = await getHistory(params);
-    const ops = getStoredOperators();
-    const items: AdminTestItem[] = hist.items.map(h => ({
-      ...h,
-      operatorName: ops.find(o => o.id === h.operatorId)?.name ?? h.operatorId,
-    }));
-    return {
-      total: items.length,
-      offset: params?.offset ?? 0,
-      limit: params?.limit ?? 50,
-      items,
-    };
-  }
+  const hist = await getHistory(params);
+  const ops = getStoredOperators();
+  const items: AdminTestItem[] = (hist.items || []).map(h => ({
+    ...h,
+    operatorName: ops.find(o => o.id === h.operatorId)?.name ?? h.operatorId,
+  }));
+  return {
+    total: items.length,
+    offset: params?.offset ?? 0,
+    limit: params?.limit ?? 50,
+    items,
+  };
 };
 
 export const getAdminSystem = async () => {
-  try {
-    const res = await api.get('/admin/system');
-    return res.data;
-  } catch {
-    return { status: 'operational', uptime: '99.9%', environment: 'Vercel Edge / Cloud' };
-  }
+  return { status: 'operational', uptime: '99.9%', environment: 'Cloud / Local' };
 };
 
 export const getAdminModels = async () => {
-  try {
-    const res = await api.get('/admin/models');
-    return res.data;
-  } catch {
-    return getModels();
-  }
+  return getModels();
 };
 
 // ── Reports ────────────────────────────────────────────────────────
@@ -679,7 +750,7 @@ export const downloadReport = (testId: string): void => {
     `Device        : ${test?.deviceId ?? 'AS7265x'}`,
     '---------------------------------------------------------',
     '18-Channel Multispectral Data (410nm - 940nm):',
-    ...(test?.channels.map(c => `  ${c.wavelength}nm (Ch ${c.channel}): ${c.rawValue} ADC counts`) ?? []),
+    ...(test?.channels?.map(c => `  ${c.wavelength}nm (Ch ${c.channel}): ${c.rawValue} ADC counts`) ?? []),
     '=========================================================',
   ].join('\n');
 

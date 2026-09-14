@@ -50,16 +50,19 @@ export function DashboardPage() {
   // Re-fetch when operator or viewScope changes
   useEffect(() => {
     const opId = viewScope === 'operator' ? currentOperator?.id : undefined;
-    getHistory({ limit: 5, operator_id: opId }).then(r => setRecent(r.items)).catch(() => {});
+    getHistory({ limit: 5, operator_id: opId }).then(r => {
+      if (r && Array.isArray(r.items)) setRecent(r.items);
+    }).catch(() => {});
     getHistory({ limit: 500, operator_id: opId })
       .then(r => {
+        if (!r || !Array.isArray(r.items)) return;
         const byLabel: Record<string, number> = {};
         const byFood:  Record<string, number> = {};
         for (const item of r.items) {
           byLabel[item.finalLabel] = (byLabel[item.finalLabel] ?? 0) + 1;
           byFood[item.foodType]    = (byFood[item.foodType]    ?? 0) + 1;
         }
-        setSummary({ totalTests: r.total, byLabel, byFoodType: byFood });
+        setSummary({ totalTests: r.total || r.items.length, byLabel, byFoodType: byFood });
       })
       .catch(() => {});
   }, [currentOperator?.id, viewScope]);
@@ -76,7 +79,7 @@ export function DashboardPage() {
         <div>
           <h1 className="page-title">Dashboard</h1>
           <div className="page-subtitle">
-            {status?.sensor.type} · {status?.sensor.channels} channels · {status?.sensor.wavelengthRange}
+            {status?.sensor?.type ?? 'AS7265x'} · {status?.sensor?.channels ?? 18} channels · {status?.sensor?.wavelengthRange ?? '410–940 nm'}
             {viewScope === 'operator' && currentOperator && (
               <span style={{ marginLeft: 12, color: 'var(--accent)', fontWeight: 500 }}>
                 — {currentOperator.name}
