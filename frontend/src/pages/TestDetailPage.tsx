@@ -7,6 +7,8 @@ import { SpectralChart } from '../components/SpectralChart';
 import { SpectralChart3D } from '../components/SpectralChart3D';
 import { ChannelTable } from '../components/ChannelTable';
 import { PCAChart } from '../components/PCAChart';
+import { CartridgeZoneView } from '../components/CartridgeZoneView';
+import { MultimodalSensorGrid } from '../components/MultimodalSensorGrid';
 import { ArrowLeft, Download, Box } from 'lucide-react';
 
 export function TestDetailPage() {
@@ -77,6 +79,24 @@ export function TestDetailPage() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* 16-Zone Cartridge Architecture View */}
+        <div style={{ marginBottom: 16 }}>
+          <CartridgeZoneView
+            selectedFood={result.foodType as 'Milk' | 'Honey' | 'Paneer'}
+            isAdulterated={result.finalLabel === 'ADULTERATED'}
+            detectedAdulterants={result.detectedAdulterants || (result.possibleIssue ? [result.possibleIssue] : [])}
+          />
+        </div>
+
+        {/* 9 Multimodal Cartridge Sensors & Telemetry Grid */}
+        <div style={{ marginBottom: 16 }}>
+          <MultimodalSensorGrid
+            foodType={result.foodType as 'Milk' | 'Honey' | 'Paneer'}
+            isAdulterated={result.finalLabel === 'ADULTERATED'}
+            detectedAdulterant={result.possibleIssue}
+          />
         </div>
 
         <div className="card mb-4">

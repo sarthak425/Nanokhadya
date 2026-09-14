@@ -13,6 +13,7 @@ import { SpectralChart3D } from '../components/SpectralChart3D';
 import { ChannelTable } from '../components/ChannelTable';
 import { PCAChart } from '../components/PCAChart';
 import { CartridgeZoneView } from '../components/CartridgeZoneView';
+import { MultimodalSensorGrid } from '../components/MultimodalSensorGrid';
 import { useOperator } from '../context/OperatorContext';
 import { useBluetooth } from '../context/BluetoothContext';
 
@@ -44,7 +45,7 @@ export function NewTestPage() {
   const [steps, setSteps] = useState<Step[]>(INITIAL_STEPS);
   const [result, setResult] = useState<TestResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'cartridge' | 'result' | 'spectrum' | 'channels' | 'pca'>('cartridge');
+  const [activeTab, setActiveTab] = useState<'cartridge' | 'multimodal' | 'result' | 'spectrum' | 'channels' | 'pca'>('cartridge');
   const [spectralMode, setSpectralMode] = useState<'3d' | '2d'>('3d');
 
   // Keep operatorId in sync with current context operator
@@ -334,14 +335,14 @@ export function NewTestPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 {/* Tabs */}
                 <div style={{ display: 'flex', gap: 4, background: 'var(--bg-secondary)', padding: 4, borderRadius: 8, border: '1px solid var(--border)' }}>
-                  {(['cartridge', 'result', 'spectrum', 'channels', 'pca'] as const).map(tab => (
+                  {(['cartridge', 'multimodal', 'result', 'spectrum', 'channels', 'pca'] as const).map(tab => (
                     <button
                       key={tab}
                       onClick={() => setActiveTab(tab)}
                       className={activeTab === tab ? 'btn btn-primary' : 'btn btn-outline'}
                       style={{ flex: 1, padding: '6px 8px', fontSize: 12, textTransform: 'capitalize' }}
                     >
-                      {tab === 'cartridge' ? 'Cartridge Zones' : tab === 'pca' ? 'PCA' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                      {tab === 'cartridge' ? '16 Zones' : tab === 'multimodal' ? '9 Sensors' : tab === 'pca' ? 'PCA' : tab.charAt(0).toUpperCase() + tab.slice(1)}
                     </button>
                   ))}
                 </div>
@@ -352,6 +353,14 @@ export function NewTestPage() {
                     onFoodChange={(f) => setFoodType(f)}
                     isAdulterated={result.finalLabel === 'ADULTERATED'}
                     detectedAdulterants={result.detectedAdulterants || (result.possibleIssue ? [result.possibleIssue] : [])}
+                  />
+                )}
+
+                {activeTab === 'multimodal' && (
+                  <MultimodalSensorGrid
+                    foodType={result.foodType as ValidFood}
+                    isAdulterated={result.finalLabel === 'ADULTERATED'}
+                    detectedAdulterant={result.possibleIssue}
                   />
                 )}
 

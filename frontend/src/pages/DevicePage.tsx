@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { getDeviceStatus } from '../services/api';
 import { Bluetooth, AlertTriangle, Power } from 'lucide-react';
 import { SensorTriad3D } from '../components/SensorTriad3D';
+import { MultimodalSensorGrid } from '../components/MultimodalSensorGrid';
 import { useBluetooth } from '../context/BluetoothContext';
 
 export function DevicePage() {
@@ -143,6 +144,9 @@ export function DevicePage() {
                 </div>
               </div>
             </div>
+
+            {/* 9 Multimodal Cartridge Sensors Architecture */}
+            <MultimodalSensorGrid foodType="Milk" />
           </div>
         )}
       </div>
