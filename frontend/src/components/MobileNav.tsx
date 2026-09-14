@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { useOperator } from '../context/OperatorContext';
 import { useBluetooth } from '../context/BluetoothContext';
+import { PWAInstallButton } from './PWAInstallPrompt';
 
 interface MobileHeaderProps {
   isDev: boolean;
@@ -60,6 +61,8 @@ export function MobileHeader({
             <span className="mobile-op-name">{currentOperator.name.split(' ')[0]}</span>
           </div>
         )}
+
+        <PWAInstallButton />
 
         <button
           className="mobile-icon-btn"

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useOperator } from '../context/OperatorContext';
 import { useBluetooth } from '../context/BluetoothContext';
+import { PWAInstallButton } from './PWAInstallPrompt';
 
 interface SidebarProps {
   isDev: boolean;
@@ -199,6 +200,10 @@ export function Sidebar({ isDev: _isDev, connected: _connected, mobileOpen = fal
         </nav>
 
         <div className="sidebar-footer">
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 6 }}>
+            <PWAInstallButton />
+          </div>
+
           <div
             className={`source-badge ${badgeClass}`}
             onClick={() => setIsModalOpen(true)}

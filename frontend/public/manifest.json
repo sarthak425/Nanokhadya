@@ -1,0 +1,32 @@
+{
+  "name": "NanoTech Food Safety",
+  "short_name": "NanoTech",
+  "description": "Portable Nano-Engineered Rapid Food Testing System for On-Site Detection of Food Adulterants (Milk, Honey, Paneer)",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0b1120",
+  "theme_color": "#0b1120",
+  "orientation": "portrait",
+  "categories": ["utilities", "productivity", "health"],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

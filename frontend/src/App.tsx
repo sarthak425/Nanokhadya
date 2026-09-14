@@ -14,6 +14,7 @@ import { getSystemStatus } from './services/api';
 import { OperatorProvider } from './context/OperatorContext';
 import { BluetoothProvider } from './context/BluetoothContext';
 import { BluetoothConnectModal } from './components/BluetoothConnectModal';
+import { PWAInstallPrompt } from './components/PWAInstallPrompt';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 function SettingsPage() {
@@ -77,6 +78,7 @@ export default function App() {
         <BluetoothProvider>
           <BrowserRouter>
             <BluetoothConnectModal />
+            <PWAInstallPrompt />
             <div className="app-layout">
             {/* Mobile Top Bar */}
             <MobileHeader
