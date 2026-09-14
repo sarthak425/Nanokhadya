@@ -10,9 +10,12 @@ import { DatasetPage } from './pages/DatasetPage';
 import { HistoryPage } from './pages/HistoryPage';
 import { ModelPage } from './pages/ModelPage';
 import { AdminPage } from './pages/AdminPage';
+import { MapPage } from './pages/MapPage';
+import { ComparatorPage } from './pages/ComparatorPage';
 import { getSystemStatus } from './services/api';
 import { OperatorProvider, useOperator } from './context/OperatorContext';
 import { BluetoothProvider } from './context/BluetoothContext';
+import { LanguageProvider } from './context/LanguageContext';
 import { BluetoothConnectModal } from './components/BluetoothConnectModal';
 import { PWAInstallPrompt } from './components/PWAInstallPrompt';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -125,6 +128,8 @@ function AppLayout() {
             <Route path="/device" element={<DevicePage />} />
             <Route path="/test" element={<NewTestPage />} />
             <Route path="/test/:testId" element={<TestDetailPage />} />
+            <Route path="/map" element={<MapPage />} />
+            <Route path="/comparator" element={<ComparatorPage />} />
             <Route path="/history" element={<HistoryPage />} />
             <Route path="/datasets" element={<DatasetPage />} />
             <Route path="/models" element={<ModelPage />} />
@@ -145,11 +150,13 @@ function AppLayout() {
 export default function App() {
   return (
     <ErrorBoundary>
-      <OperatorProvider>
-        <BluetoothProvider>
-          <AppLayout />
-        </BluetoothProvider>
-      </OperatorProvider>
+      <LanguageProvider>
+        <OperatorProvider>
+          <BluetoothProvider>
+            <AppLayout />
+          </BluetoothProvider>
+        </OperatorProvider>
+      </LanguageProvider>
     </ErrorBoundary>
   );
 }

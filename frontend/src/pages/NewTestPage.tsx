@@ -4,7 +4,7 @@ import {
   CheckCircle, XCircle, Cpu, Activity,
   Database, Zap, FlaskConical, User, Box,
   Droplets, Sparkles, ShieldCheck, Bluetooth,
-  ShieldAlert, Layers, HeartPulse
+  ShieldAlert, Layers, HeartPulse, Volume2, MapPin, GitCompare
 } from 'lucide-react';
 import { runTest } from '../services/api';
 import type { TestResult } from '../services/api';
@@ -18,6 +18,7 @@ import { AnimalViewer3D } from '../components/AnimalViewer3D';
 import { ChemicalBodyImpactView } from '../components/ChemicalBodyImpactView';
 import { useOperator } from '../context/OperatorContext';
 import { useBluetooth } from '../context/BluetoothContext';
+import { useLanguage } from '../context/LanguageContext';
 
 type StepStatus = 'pending' | 'active' | 'done' | 'error';
 
@@ -40,6 +41,8 @@ export function NewTestPage() {
   const navigate = useNavigate();
   const { currentOperator } = useOperator();
   const { isConnected, device, setIsModalOpen } = useBluetooth();
+  const { speakTestResult, locale } = useLanguage();
+  const isHi = locale === 'hi';
   const [foodType, setFoodType] = useState<ValidFood>('Milk');
   const [operatorId, setOperatorId] = useState(currentOperator?.id ?? 'default-operator');
   const [running, setRunning] = useState(false);
@@ -94,6 +97,9 @@ export function NewTestPage() {
 
       setResult(testResult);
       setActiveTab('result');
+
+      // 🔊 Voice speech announcement
+      speakTestResult(foodType, testResult.finalLabel, testResult.possibleIssue);
     } catch (err: any) {
       const msg = err?.response?.data?.detail ?? err.message ?? 'Test failed';
       setError(msg);
@@ -504,12 +510,54 @@ export function NewTestPage() {
             {activeTab === 'result' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <ResultCard result={result} />
+
+                {/* Voice Replay Bar */}
                 <button
-                  className="btn btn-primary"
-                  style={{ width: '100%', padding: '10px' }}
-                  onClick={() => setActiveTab('health')}
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => speakTestResult(result.foodType, result.finalLabel, result.possibleIssue)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    background: 'rgba(56, 139, 253, 0.12)',
+                    borderColor: 'rgba(56, 139, 253, 0.35)',
+                    color: '#58a6ff',
+                    fontWeight: 600,
+                  }}
                 >
-                  🧬 Check Chemical Effect on Human Body →
+                  <Volume2 size={16} />
+                  <span>{isHi ? '🔊 परिणाम आवाज में दोबारा सुनें' : '🔊 Replay Voice Verdict'}</span>
+                </button>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <button
+                    className="btn btn-primary"
+                    style={{ padding: '10px 8px', fontSize: 12 }}
+                    onClick={() => setActiveTab('health')}
+                  >
+                    🧬 {isHi ? 'शरीर पर असर' : 'Body Impact'} →
+                  </button>
+                  <button
+                    className="btn btn-outline"
+                    style={{ padding: '10px 8px', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                    onClick={() => navigate('/comparator')}
+                  >
+                    <GitCompare size={14} />
+                    <span>{isHi ? 'शुद्धता तुलना' : 'Comparator'}</span>
+                  </button>
+                </div>
+
+                <button
+                  className="btn btn-outline"
+                  style={{ padding: '8px 12px', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                  onClick={() => navigate('/map')}
+                >
+                  <MapPin size={14} color="#38bdf8" />
+                  <span>{isHi ? 'क्षेत्रीय हॉटस्पॉट मैप पर देखें' : 'View on Regional Surveillance Map'}</span>
                 </button>
               </div>
             )}

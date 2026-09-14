@@ -1,10 +1,11 @@
 import { NavLink } from 'react-router-dom';
 import {
   Menu, X, Sun, Moon, LayoutDashboard, FlaskConical,
-  History, Bluetooth, MoreHorizontal, User
+  MoreHorizontal, User, MapPin, GitCompare
 } from 'lucide-react';
 import { useOperator } from '../context/OperatorContext';
 import { useBluetooth } from '../context/BluetoothContext';
+import { useLanguage } from '../context/LanguageContext';
 import { PWAInstallButton } from './PWAInstallPrompt';
 
 interface MobileHeaderProps {
@@ -26,8 +27,19 @@ export function MobileHeader({
 }: MobileHeaderProps) {
   const { currentOperator } = useOperator();
   const { isConnected, setIsModalOpen } = useBluetooth();
+  const { locale, setLocale, speakText } = useLanguage();
   const statusDot = isConnected ? 'blue' : 'red';
   const statusText = isConnected ? 'BLE' : 'Off';
+
+  const toggleLanguage = () => {
+    const next = locale === 'en' ? 'hi' : 'en';
+    setLocale(next);
+    if (next === 'hi') {
+      speakText('हिंदी भाषा सक्रिय।', 'hi');
+    } else {
+      speakText('English language active.', 'en');
+    }
+  };
 
   return (
     <header className="mobile-header">
@@ -42,7 +54,7 @@ export function MobileHeader({
 
       <div className="mobile-header-brand">
         <span className="mobile-header-title">NanoTech</span>
-        <span className="mobile-header-subtitle">Food Safety</span>
+        <span className="mobile-header-subtitle">{locale === 'hi' ? 'खाद्य सुरक्षा' : 'Food Safety'}</span>
         <span
           className="mobile-status-pill"
           style={{ cursor: 'pointer' }}
@@ -54,7 +66,25 @@ export function MobileHeader({
         </span>
       </div>
 
-      <div className="mobile-header-actions">
+      <div className="mobile-header-actions" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        {/* Language switch button */}
+        <button
+          onClick={toggleLanguage}
+          style={{
+            padding: '4px 8px',
+            borderRadius: 6,
+            border: '1px solid var(--border)',
+            background: 'var(--bg-secondary)',
+            color: 'var(--accent)',
+            fontSize: 11,
+            fontWeight: 700,
+            cursor: 'pointer',
+          }}
+          title="Switch language (EN / हिन्दी)"
+        >
+          {locale === 'en' ? 'हिन्दी' : 'EN'}
+        </button>
+
         {currentOperator && (
           <div className="mobile-operator-pill" title={`Operator: ${currentOperator.name}`}>
             <User size={12} />
@@ -82,6 +112,9 @@ interface MobileBottomBarProps {
 }
 
 export function MobileBottomBar({ onToggleMore }: MobileBottomBarProps) {
+  const { locale } = useLanguage();
+  const isHi = locale === 'hi';
+
   return (
     <nav className="mobile-bottom-bar" aria-label="Mobile Navigation">
       <NavLink
@@ -89,16 +122,16 @@ export function MobileBottomBar({ onToggleMore }: MobileBottomBarProps) {
         end
         className={({ isActive }) => `mobile-bottom-item${isActive ? ' active' : ''}`}
       >
-        <LayoutDashboard size={20} />
-        <span>Home</span>
+        <LayoutDashboard size={19} />
+        <span>{isHi ? 'होम' : 'Home'}</span>
       </NavLink>
 
       <NavLink
-        to="/history"
+        to="/map"
         className={({ isActive }) => `mobile-bottom-item${isActive ? ' active' : ''}`}
       >
-        <History size={20} />
-        <span>History</span>
+        <MapPin size={19} />
+        <span>{isHi ? 'मैप' : 'Map'}</span>
       </NavLink>
 
       {/* Prominent Center Action for New Test */}
@@ -110,15 +143,15 @@ export function MobileBottomBar({ onToggleMore }: MobileBottomBarProps) {
         <div className="action-circle">
           <FlaskConical size={20} />
         </div>
-        <span>New Test</span>
+        <span>{isHi ? 'टेस्ट' : 'Test'}</span>
       </NavLink>
 
       <NavLink
-        to="/device"
+        to="/comparator"
         className={({ isActive }) => `mobile-bottom-item${isActive ? ' active' : ''}`}
       >
-        <Bluetooth size={20} />
-        <span>Device</span>
+        <GitCompare size={19} />
+        <span>{isHi ? 'तुलना' : 'Compare'}</span>
       </NavLink>
 
       <button
@@ -126,9 +159,10 @@ export function MobileBottomBar({ onToggleMore }: MobileBottomBarProps) {
         onClick={onToggleMore}
         aria-label="More Navigation Options"
       >
-        <MoreHorizontal size={20} />
-        <span>More</span>
+        <MoreHorizontal size={19} />
+        <span>{isHi ? 'और' : 'More'}</span>
       </button>
     </nav>
   );
 }
+

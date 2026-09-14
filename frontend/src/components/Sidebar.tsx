@@ -3,10 +3,11 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, Bluetooth, FlaskConical,
   History, Database, Brain, Settings, Sun, Moon,
-  LogOut, X,
+  LogOut, X, MapPin, GitCompare, Volume2, VolumeX
 } from 'lucide-react';
 import { useOperator } from '../context/OperatorContext';
 import { useBluetooth } from '../context/BluetoothContext';
+import { useLanguage } from '../context/LanguageContext';
 import { PWAInstallButton } from './PWAInstallPrompt';
 
 interface SidebarProps {
@@ -20,19 +21,22 @@ interface NavItem {
   to?: string;
   icon?: any;
   label: string;
+  labelHi?: string;
   divider?: boolean;
   badge?: string;
 }
 
 const navItems: NavItem[] = [
-  { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/device', icon: Bluetooth, label: 'Device' },
-  { to: '/test', icon: FlaskConical, label: 'New Test' },
-  { to: '/history', icon: History, label: 'Test History' },
-  { divider: true, label: 'Data & Models' },
-  { to: '/datasets', icon: Database, label: 'Datasets' },
-  { to: '/models', icon: Brain, label: 'ML Models' },
-  { to: '/settings', icon: Settings, label: 'Settings' },
+  { to: '/', icon: LayoutDashboard, label: 'Dashboard', labelHi: 'डैशबोर्ड' },
+  { to: '/test', icon: FlaskConical, label: 'New Test', labelHi: 'नया परीक्षण' },
+  { to: '/map', icon: MapPin, label: 'Field Heatmap', labelHi: 'क्षेत्रीय मैप', badge: 'RADAR' },
+  { to: '/comparator', icon: GitCompare, label: 'Purity Comparator', labelHi: 'शुद्धता तुलना', badge: 'NEW' },
+  { to: '/history', icon: History, label: 'Test History', labelHi: 'जांच इतिहास' },
+  { to: '/device', icon: Bluetooth, label: 'Device', labelHi: 'डिवाइस' },
+  { divider: true, label: 'Data & Models', labelHi: 'डेटा और एआई' },
+  { to: '/datasets', icon: Database, label: 'Datasets', labelHi: 'डेटासेट' },
+  { to: '/models', icon: Brain, label: 'ML Models', labelHi: 'एआई मॉडल' },
+  { to: '/settings', icon: Settings, label: 'Settings', labelHi: 'सेटिंग्स' },
 ];
 
 // ── Theme persistence ────────────────────────────────────────────────
@@ -56,7 +60,9 @@ function applyTheme(theme: 'dark' | 'light') {
 export function Sidebar({ isDev: _isDev, connected: _connected, mobileOpen = false, onClose }: SidebarProps) {
   const { currentOperator, logout, deviceId } = useOperator();
   const { isConnected, setIsModalOpen, device } = useBluetooth();
+  const { locale, setLocale, voiceEnabled, setVoiceEnabled, speakText } = useLanguage();
   const [theme, setTheme]         = useState<'dark' | 'light'>(getInitialTheme);
+  const isHi = locale === 'hi';
 
   useEffect(() => { applyTheme(theme); }, []);
 
@@ -64,6 +70,15 @@ export function Sidebar({ isDev: _isDev, connected: _connected, mobileOpen = fal
     const next = theme === 'dark' ? 'light' : 'dark';
     setTheme(next);
     applyTheme(next);
+  };
+
+  const toggleLanguage = (lang: 'en' | 'hi') => {
+    setLocale(lang);
+    if (lang === 'hi') {
+      speakText('हिंदी भाषा सक्रिय की गई है।', 'hi');
+    } else {
+      speakText('English language activated.', 'en');
+    }
   };
 
   const statusDot  = isConnected ? 'blue' : 'red';
@@ -86,7 +101,7 @@ export function Sidebar({ isDev: _isDev, connected: _connected, mobileOpen = fal
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
               <div className="logo-mark">NanoTech</div>
-              <div className="logo-name">Food Safety System</div>
+              <div className="logo-name">{isHi ? 'खाद्य सुरक्षा प्रणाली' : 'Food Safety System'}</div>
               <div className="logo-sub">AS7265x · 18-Channel · PCA+SVM</div>
             </div>
             {/* Mobile close button */}
@@ -169,12 +184,84 @@ export function Sidebar({ isDev: _isDev, connected: _connected, mobileOpen = fal
           </div>
         </div>
 
+        {/* ── Language & Audio Bar ────────────────────────────── */}
+        <div style={{
+          margin: '0 12px 10px',
+          padding: '6px 8px',
+          borderRadius: 8,
+          background: 'var(--bg-secondary)',
+          border: '1px solid var(--border)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 6,
+        }}>
+          {/* Language Switcher */}
+          <div style={{ display: 'flex', background: 'var(--bg-card)', borderRadius: 6, padding: 2, border: '1px solid var(--border)' }}>
+            <button
+              onClick={() => toggleLanguage('en')}
+              style={{
+                padding: '3px 8px',
+                borderRadius: 4,
+                border: 'none',
+                background: locale === 'en' ? 'var(--accent)' : 'transparent',
+                color: locale === 'en' ? '#fff' : 'var(--text-secondary)',
+                fontSize: 11,
+                fontWeight: locale === 'en' ? 700 : 500,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              EN
+            </button>
+            <button
+              onClick={() => toggleLanguage('hi')}
+              style={{
+                padding: '3px 8px',
+                borderRadius: 4,
+                border: 'none',
+                background: locale === 'hi' ? 'var(--accent)' : 'transparent',
+                color: locale === 'hi' ? '#fff' : 'var(--text-secondary)',
+                fontSize: 11,
+                fontWeight: locale === 'hi' ? 700 : 500,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              हिन्दी
+            </button>
+          </div>
+
+          {/* Voice Audio Toggle */}
+          <button
+            onClick={() => setVoiceEnabled(!voiceEnabled)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              padding: '4px 8px',
+              borderRadius: 6,
+              border: '1px solid var(--border)',
+              background: voiceEnabled ? 'rgba(56, 139, 253, 0.12)' : 'transparent',
+              color: voiceEnabled ? '#58a6ff' : 'var(--text-muted)',
+              fontSize: 11,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+            title={voiceEnabled ? 'Voice readouts enabled' : 'Voice readouts muted'}
+          >
+            {voiceEnabled ? <Volume2 size={13} /> : <VolumeX size={13} />}
+            <span>{voiceEnabled ? (isHi ? 'आवाज चालू' : 'Voice On') : (isHi ? 'म्यूट' : 'Mute')}</span>
+          </button>
+        </div>
+
         <nav className="sidebar-nav">
           {navItems.map((item, i) => {
             if ('divider' in item) {
-              return <div key={i} className="nav-section-label">{item.label}</div>;
+              return <div key={i} className="nav-section-label">{isHi && item.labelHi ? item.labelHi : item.label}</div>;
             }
             const Icon = item.icon!;
+            const displayLabel = isHi && item.labelHi ? item.labelHi : item.label;
             return (
               <NavLink
                 key={item.to}
@@ -184,7 +271,7 @@ export function Sidebar({ isDev: _isDev, connected: _connected, mobileOpen = fal
                 className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
               >
                 <Icon size={16} />
-                <span style={{ flex: 1 }}>{item.label}</span>
+                <span style={{ flex: 1 }}>{displayLabel}</span>
                 {item.badge && (
                   <span style={{
                     fontSize: 9,
@@ -192,8 +279,9 @@ export function Sidebar({ isDev: _isDev, connected: _connected, mobileOpen = fal
                     letterSpacing: '0.06em',
                     padding: '1px 5px',
                     borderRadius: 4,
-                    background: 'var(--accent-dim)',
-                    color: 'var(--accent)',
+                    background: item.badge === 'RADAR' ? 'rgba(56, 189, 248, 0.2)' : 'var(--accent-dim)',
+                    color: item.badge === 'RADAR' ? '#38bdf8' : 'var(--accent)',
+                    border: item.badge === 'RADAR' ? '1px solid rgba(56, 189, 248, 0.3)' : 'none',
                   }}>
                     {item.badge}
                   </span>
